@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 
@@ -42,7 +42,9 @@ const Journaling = lazy(() => import('./components/CopingTechniques/Journaling')
 function App() {
   return (
     <HelmetProvider>
-      <Router>
+      {/* FIX: on GitHub Pages the site lives at /relevia/, without basename every
+          route 404'd. BASE_URL is '/' locally and '/relevia/' for npm run deploy. */}
+      <Router basename={import.meta.env.BASE_URL}>
         {/* Global SEO Configuration */}
         <Helmet>
           <html lang="en" />
@@ -163,12 +165,13 @@ function App() {
                       <div className="text-center">
                         <h1 className="text-4xl font-bold text-gray-900 mb-4">404 - Page Not Found</h1>
                         <p className="text-gray-600 mb-8">The page you're looking for doesn't exist.</p>
-                        <a 
-                          href="/" 
+                        {/* FIX: a plain href="/" left the /relevia/ site on GitHub Pages */}
+                        <Link
+                          to="/"
                           className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           Return Home
-                        </a>
+                        </Link>
                       </div>
                     </div>
                   }
