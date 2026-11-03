@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2, VolumeX, Mic, MicOff, AlertCircle } from 'lucide-react';
 
 // Import optimized brain with streaming support
-import { think, warmupEngine, rememberName, onEngineStatus } from '../services/releviaBrain';
+import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from '../services/releviaBrain';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -146,6 +146,20 @@ const ChatbotWidget = () => {
   const [engineStatus, setEngineStatus] = useState({ state: 'idle', progress: 0 });
   const [streamingId, setStreamingId] = useState(null);   // id of the bot message being streamed
   const noticeShownRef = useRef(false);
+  const [upgradeDismissed, setUpgradeDismissed] = useState(false);
+
+  // the 1B starts fast; on devices that can handle it, I offer the 3B as an upgrade
+  const showUpgrade = engineStatus.state === 'ready' && engineStatus.upgradeAvailable && !upgradeDismissed;
+  const handleUpgrade = async () => {
+    setUpgradeDismissed(true);
+    const ok = await upgradeEngine();
+    setMessages(prev => [...prev, {
+      id: Date.now(), isBot: true, timestamp: new Date(), isCrisis: false,
+      text: ok
+        ? "All set ✨ I'm running my bigger AI now, so my replies should feel more thoughtful."
+        : "That bigger AI was too heavy for this device, so I've gone back to my lighter one. I'm still right here.",
+    }]);
+  };
 
   // keep the header in sync with the model loading in releviaBrain
   useEffect(() => onEngineStatus(setEngineStatus), []);
@@ -589,9 +603,20 @@ const ChatbotWidget = () => {
                   exit={{ opacity: 0 }}
                   className="px-3 py-2 bg-gradient-to-r from-purple-50 via-pink-50 to-red-50 border-t border-purple-100"
                 >
-                  <p className="text-xs text-gray-600 text-center">
-                    Emotional support • Not therapy • In crisis? 988
-                  </p>
+                  {showUpgrade ? (
+                    // optional, never automatic: it's another big download
+                    <div className="flex items-center justify-between gap-2 text-xs text-purple-700">
+                      <span>✨ Smarter replies available ({engineStatus.upgradeSizeGB} GB, one time)</span>
+                      <span className="flex gap-2 shrink-0">
+                        <button onClick={handleUpgrade} className="font-semibold underline hover:text-purple-900">Upgrade</button>
+                        <button onClick={() => setUpgradeDismissed(true)} aria-label="Not now" className="text-gray-500 hover:text-gray-700">Not now</button>
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-600 text-center">
+                      Emotional support • Not therapy • In crisis? 988
+                    </p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
