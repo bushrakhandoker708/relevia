@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
 
+  // the AI worker (src/services/llmWorker.js) uses ES imports, so build it as a module
+  worker: { format: 'es' },
+
   build: {
     target: 'esnext',
     rollupOptions: {

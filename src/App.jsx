@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { MotionConfig } from 'framer-motion';
 
 // Core Components
 import Navbar from './components/Navbar';
@@ -42,6 +43,10 @@ const Journaling = lazy(() => import('./components/CopingTechniques/Journaling')
 function App() {
   return (
     <HelmetProvider>
+      {/* ACCESSIBILITY + PERF: anyone with "reduce motion" turned on (common with anxiety
+          and vestibular issues) gets every framer-motion animation on the site calmed
+          down - no sliding, bouncing or looping movement, just fades. */}
+      <MotionConfig reducedMotion="user">
       {/* FIX: on GitHub Pages the site lives at /relevia/, without basename every
           route 404'd. BASE_URL is '/' locally and '/relevia/' for npm run deploy. */}
       <Router basename={import.meta.env.BASE_URL}>
@@ -187,6 +192,7 @@ function App() {
           <QuickHelpButton />
         </ErrorBoundary>
       </Router>
+      </MotionConfig>
     </HelmetProvider>
   );
 }

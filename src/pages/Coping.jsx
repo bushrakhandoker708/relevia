@@ -1,9 +1,10 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FaLungs, FaEye, FaHandSparkles, FaImages, FaSmile, FaRunning, FaPen } from 'react-icons/fa';
 import { Player } from '@lottiefiles/react-lottie-player';
+import useCalmAnimation from '../hooks/useCalmAnimation';
 import copingAnimation from '../assets/animation/coping.json';
 
 const containerVariants = {
@@ -225,6 +226,14 @@ const Button = ({ to, text, colorVariants }) => {
 };
 
 function Coping() {
+  // PERF: the big animation loops only while it's on screen, not at all with "reduce motion"
+  const calm = useCalmAnimation();
+  const playerRef = useRef(null);
+  useEffect(() => {
+    if (calm.shouldPlay) playerRef.current?.play();
+    else playerRef.current?.pause();
+  }, [calm.shouldPlay]);
+
   const [activeTechnique, setActiveTechnique] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -305,12 +314,15 @@ function Coping() {
             transition={{ duration: 1.2, ease: 'easeOut' }}
             className="w-full sm:w-1/2 flex justify-center"
           >
+            <div ref={calm.ref}>
             <Player
-              autoplay
+              ref={playerRef}
+              autoplay={!calm.reduceMotion}
               loop
               src={copingAnimation}
               style={{ height: isMobile ? '300px' : '600px', width: isMobile ? '300px' : '600px', maxWidth: '100%' }}
             />
+            </div>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}

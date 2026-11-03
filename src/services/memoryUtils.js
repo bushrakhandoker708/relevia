@@ -12,6 +12,13 @@ export function analyzeEmotionalTone(text) {
   if (/(lonely|isolated|no friends|abandoned)/.test(t)) return 'lonely';
   // FIX: plain "I'm sad" used to fall through to neutral and get a generic reply
   if (/\b(sad|down|low|upset|crying|cried|hurt|heartbroken|miserable)\b/.test(t)) return 'sad';
+  // FIX: good news used to land in "neutral", so "im happy" got "Tell me more—what's been
+  // on your mind?" like nothing happened. Checked last, so "happy but anxious" stays anxious.
+  // (promot/propot also catches the common "propotion" typo)
+  // "not happy" / "don't feel happy" is the opposite, catch it before the happy check
+  // (n't has no \b in front of it - "don't" is one word - so it sits outside that group)
+  if (/(?:\b(?:not|never|no longer)|n['’]t)\s+(feel(ing)?\s+|so\s+|very\s+|really\s+)?(happy|excited|glad|proud|grateful)/.test(t)) return 'sad';
+  if (/\b(happy|excited|so glad|great news|good news|promot|propot|got the job|passed|proud|grateful|thrilled|engaged|amazing day)/.test(t)) return 'happy';
   return 'neutral';
 }
 
@@ -44,6 +51,10 @@ const fallbackPool = {
   sad: [
     "I'm really sorry you're feeling this way. You don't have to explain it perfectly, or even know why it hurts. Do you want to tell me what's been weighing on you?",
     "That sounds heavy, and it makes sense that it's getting to you. Be gentle with yourself today, even a glass of water or a few slow breaths counts. I'm here if you want to talk it through."
+  ],
+  happy: [
+    "That's wonderful! 🎉 I love hearing this. Tell me everything—what happened?",
+    "Yay, that genuinely made me smile 💜 Moments like this deserve to be celebrated. How are you going to treat yourself?"
   ],
   // neutral = something was said but I can't tell the feeling, so I invite more
   neutral: [

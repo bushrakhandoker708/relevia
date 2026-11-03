@@ -3,12 +3,12 @@ import { useEffect, useRef } from 'react';
 
 function SplashCursor({
   SIM_RESOLUTION = 128,
-  DYE_RESOLUTION = 1440,
+  DYE_RESOLUTION = 512,     // PERF: was 1440. The dye fades in <0.5s, nobody sees the difference
   CAPTURE_RESOLUTION = 512,
   DENSITY_DISSIPATION = 25.0,  // Increased for faster fade
   VELOCITY_DISSIPATION = 12,  // Increased for faster movement decay
   PRESSURE = 0.1,
-  PRESSURE_ITERATIONS = 20,
+  PRESSURE_ITERATIONS = 10,  // PERF: was 20, half the GPU work per frame
   CURL = 3,
   SPLAT_RADIUS = 0.2,
   SPLAT_FORCE = 6000,
@@ -18,9 +18,35 @@ function SplashCursor({
   TRANSPARENT = true
 }) {
   const canvasRef = useRef(null);
+  // ACCESSIBILITY + PERF: people who turn on "reduce motion" (common with anxiety and
+  // vestibular issues) get no fluid effect at all - and zero GPU cost from it.
+  const reduceMotion = typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
+    if (reduceMotion) return;
     const canvas = canvasRef.current;
+
+    // PERF FIX: this effect never cleaned up after itself. Every time Home mounted
+    // it started ANOTHER simulation loop and another set of window listeners, and the
+    // old ones kept running forever, so the site got slower the more you clicked
+    // around. Every listener now goes through this controller so cleanup removes them.
+    const ac = new AbortController();
+    const listenOpts = (opts) => ({ ...(typeof opts === 'object' ? opts : { capture: !!opts }), signal: ac.signal });
+    const onWindow = (type, fn, opts) => window.addEventListener(type, fn, listenOpts(opts));
+    const onBody = (type, fn, opts) => document.body.addEventListener(type, fn, listenOpts(opts));
+
+    // PERF FIX: the loop ran 60x a second forever, even with the mouse still. Now it
+    // sleeps after IDLE_MS without input (the dye has faded long before) and wakes
+    // on the next pointer move. Also sleeps while the tab is hidden.
+    const IDLE_MS = 2000;
+    let rafId = 0;
+    let stopped = false;
+    let running = false;
+    let lastInput = Date.now();
+    // PERF: true while the chat AI is loading or writing a reply (releviaBrain.js
+    // sends 'relevia:ai-busy'). The AI shares this GPU, so I step aside until it's done.
+    let aiBusy = window.releviaAIBusy === true;
     if (!canvas) return;
 
     function pointerPrototype() {
@@ -672,13 +698,29 @@ function SplashCursor({
     let colorUpdateTimer = 0.0;
 
     function updateFrame() {
+      if (stopped) return;
+      if (aiBusy || document.hidden || Date.now() - lastInput > IDLE_MS) {
+        running = false; // go to sleep, wake() restarts it
+        return;
+      }
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
       updateColors(dt);
       applyInputs();
       step(dt);
       render(null);
-      requestAnimationFrame(updateFrame);
+      rafId = requestAnimationFrame(updateFrame);
+    }
+
+    // start the loop only if it isn't already running.
+    // FIX: handleFirstMouseMove used to call updateFrame() directly, which started a
+    // SECOND loop next to the first one, so the sim ran twice per frame.
+    function wake() {
+      lastInput = Date.now();
+      if (running || stopped || aiBusy) return;
+      running = true;
+      lastUpdateTime = Date.now(); // don't simulate the time we were asleep
+      rafId = requestAnimationFrame(updateFrame);
     }
 
     function calcDeltaTime() {
@@ -984,7 +1026,7 @@ function SplashCursor({
       return hash;
     }
 
-    window.addEventListener('mousedown', e => {
+    onWindow('mousedown', e => {
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
@@ -992,17 +1034,17 @@ function SplashCursor({
       clickSplat(pointer);
     });
 
-    document.body.addEventListener('mousemove', function handleFirstMouseMove(e) {
+    onBody('mousemove', function handleFirstMouseMove(e) {
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       let color = generateColor();
-      updateFrame();
+      wake();
       updatePointerMoveData(pointer, posX, posY, color);
       document.body.removeEventListener('mousemove', handleFirstMouseMove);
     });
 
-    window.addEventListener('mousemove', e => {
+    onWindow('mousemove', e => {
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
@@ -1010,19 +1052,19 @@ function SplashCursor({
       updatePointerMoveData(pointer, posX, posY, color);
     });
 
-    document.body.addEventListener('touchstart', function handleFirstTouchStart(e) {
+    onBody('touchstart', function handleFirstTouchStart(e) {
       const touches = e.targetTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
         let posX = scaleByPixelRatio(touches[i].clientX);
         let posY = scaleByPixelRatio(touches[i].clientY);
-        updateFrame();
+        wake(); // FIX: same double-loop bug as the mouse version, once per finger
         updatePointerDownData(pointer, touches[i].identifier, posX, posY);
       }
       document.body.removeEventListener('touchstart', handleFirstTouchStart);
     });
 
-    window.addEventListener('touchstart', e => {
+    onWindow('touchstart', e => {
       const touches = e.targetTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -1032,7 +1074,7 @@ function SplashCursor({
       }
     });
 
-    window.addEventListener(
+    onWindow(
       'touchmove',
       e => {
         const touches = e.targetTouches;
@@ -1046,7 +1088,7 @@ function SplashCursor({
       false
     );
 
-    window.addEventListener('touchend', e => {
+    onWindow('touchend', e => {
       const touches = e.changedTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -1054,7 +1096,26 @@ function SplashCursor({
       }
     });
 
-    updateFrame();
+    // any pointer activity wakes the sim up, coming back to the tab too
+    onWindow('pointermove', wake, { passive: true });
+    onWindow('pointerdown', wake, { passive: true });
+    onWindow('touchstart', wake, { passive: true });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); }, { signal: ac.signal });
+    onWindow('relevia:ai-busy', (e) => {
+      aiBusy = e.detail;
+      if (!aiBusy) wake();
+    });
+
+    wake();
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(rafId);
+      ac.abort(); // removes every listener added above
+      // NOTE: I don't call loseContext() here. React re-runs this effect on the same
+      // canvas in dev (StrictMode) and a lost context crashes the second run. The
+      // browser frees the GPU memory when the canvas is removed anyway.
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     SIM_RESOLUTION,
@@ -1072,6 +1133,8 @@ function SplashCursor({
     BACK_COLOR,
     TRANSPARENT
   ]);
+
+  if (reduceMotion) return null;
 
   return (
     <div className="fixed top-0 left-0 z-50 pointer-events-none w-full h-full">
