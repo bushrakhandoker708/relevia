@@ -18,20 +18,35 @@ const FloatingBackground = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [mouseX, mouseY]);
 
+  // FIX: I was calling useTransform inside .map(), which breaks the rules of hooks.
+  // All 5 blobs used the same values anyway, so one pair at the top level is enough.
+  const x = useTransform(mouseX, [0, window.innerWidth], [-10, 10]);
+  const y = useTransform(mouseY, [0, window.innerHeight], [-10, 10]);
+
+  // FIX: Math.random() ran on every re-render, so the blobs jumped around each
+  // time the mouse moved. Pick the random sizes/positions once.
+  const [blobs] = useState(() =>
+    [...Array(5)].map(() => ({
+      width: Math.random() * 100 + 50,
+      height: Math.random() * 100 + 50,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      duration: Math.random() * 10 + 10,
+    }))
+  );
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {[...Array(5)].map((_, i) => {
-        const x = useTransform(mouseX, [0, window.innerWidth], [-10, 10]);
-        const y = useTransform(mouseY, [0, window.innerHeight], [-10, 10]);
+      {blobs.map((b, i) => {
         return (
           <motion.div
             key={i}
             className="absolute bg-primary-100/30 rounded-full blur-lg"
             style={{
-              width: `${Math.random() * 100 + 50}px`,
-              height: `${Math.random() * 100 + 50}px`,
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
+              width: `${b.width}px`,
+              height: `${b.height}px`,
+              top: `${b.top}%`,
+              left: `${b.left}%`,
               x,
               y,
             }}
@@ -40,7 +55,7 @@ const FloatingBackground = () => {
               opacity: [0.3, 0.6, 0.3],
             }}
             transition={{
-              duration: Math.random() * 10 + 10,
+              duration: b.duration,
               repeat: Infinity,
               ease: 'easeInOut',
             }}

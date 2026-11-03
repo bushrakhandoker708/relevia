@@ -1,9 +1,12 @@
-/* memoryUtils.js – helpers for groqApi.js */
+/* memoryUtils.js – tone detection + offline fallback replies (used by releviaBrain.js and groqApi.js) */
+import { CRISIS_RE } from './safety.js';
+
 export function analyzeEmotionalTone(text) {
   const t = text.toLowerCase();
-  if (/(suicide|kill myself|end it all|no point living)/.test(t)) return 'crisis';
-  if (/(panic|anxious|scared|can.t breathe|heart racing)/.test(t)) return 'anxiety';
-  if (/(depressed|hopeless|worthless|suicidal ideation)/.test(t)) return 'depression';
+  // FIX: use the same crisis list as safety.js so the two can't disagree
+  if (CRISIS_RE.test(t)) return 'crisis';
+  if (/(panic|anxious|anxiety|scared|can.t breathe|heart racing)/.test(t)) return 'anxiety';
+  if (/(depressed|depression|hopeless|worthless|empty inside)/.test(t)) return 'depression';
   if (/(grief|died|death|loss|funeral)/.test(t)) return 'grief';
   if (/(angry|furious|betrayed|rage)/.test(t)) return 'anger';
   if (/(lonely|isolated|no friends|abandoned)/.test(t)) return 'lonely';
@@ -45,8 +48,13 @@ const fallbackPool = {
 export function getContextualResponse(text, tone, name, history) {
   const pool = fallbackPool[tone] || fallbackPool.neutral;
   // simple rotate so repeats feel less robotic
-  const idx = (history.length || 0) % pool.length;
-  let out = pool[idx];
-  if (name) out = out.replace(/\byou\b/g, name).replace(/\byour\b/g, `${name}'s`);
+  // FIX: I used history.length, but history is always user+bot pairs (even) or capped
+  // at 12, so it picked the SAME reply every time. Counting bot replies actually rotates.
+  const botReplies = (history || []).filter(t => t.role === 'assistant').length;
+  let out = pool[botReplies % pool.length];
+  // FIX: I used to replace every "you" with the name, which gave stuff like
+  // "Bushra're not alone" and "I'm right here for Bushra". Just greet them by name instead.
+  // (keep "I" capitalised, only lowercase normal first words)
+  if (name) out = `${name}, ${/^I\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1)}`;
   return out;
 }
