@@ -28,6 +28,10 @@ let engineUnavailable = false; // true = this device can't run it, don't keep re
 let retryAt = 0;               // after a NETWORK failure, try the download again after this time
 const NETWORK_RETRY_MS = 30000;
 const HISTORY_STEP = 6; // see buildPrompt - history window moves 6 messages at a time
+let pickedF16 = true;     // whether this GPU can run the smaller q4f16 models
+let upgradeTier = null;   // 'standard' when this device could run the 3B but got the 1B first
+let upgrading = false;
+let forceFastStart = false; // dev testing only, see pickModel
 
 // ---------- status that the chat UI can listen to ----------
 // state: 'idle' | 'loading' | 'ready' | 'unavailable'
@@ -73,7 +77,15 @@ async function pickModel() {
   const info = adapter.info || {};
   const intelIntegrated = info.vendor === 'intel' && /^(gen-|xe-lp)/.test(info.architecture || '');
   const weakGpu = intelIntegrated || adapter.isFallbackAdapter || info.isFallbackAdapter;
-  const tier = isPhone || lowRam || !f16 || weakGpu ? 'lite' : 'standard';
+  let tier = isPhone || lowRam || !f16 || weakGpu ? 'lite' : 'standard';
+  // DEV ONLY, for testing both paths on one machine:
+  //   ?tier=standard (or lite) forces a model, &faststart=1 starts on the 1B even if
+  //   the 3B is already cached, so I can test the upgrade button without a big download
+  if (import.meta.env.DEV) {
+    const q = new URLSearchParams(window.location.search);
+    if (MODELS[q.get('tier')]) tier = q.get('tier');
+    forceFastStart = q.get('faststart') === '1';
+  }
   console.log(`[Relevia] GPU: ${info.vendor || '?'} ${info.architecture || ''} -> ${tier} model`);
   return { tier, f16 };
 }
@@ -148,30 +160,42 @@ async function getEngine() {
       }
 
       const webllm = await import('@mlc-ai/web-llm');
+      pickedF16 = pick.f16;
+
+      // FAST START: people were waiting ages for the 2.3 GB model before the AI said a
+      // word. If the 3B isn't downloaded yet, I start with the 1B (0.9 GB, ~2.5x less
+      // to download) and offer the 3B as an optional upgrade once it's running.
+      let tier = pick.tier;
+      if (tier === 'standard') {
+        const stdCached = await webllm
+          .hasModelInCache(modelIdFor('standard', pick.f16), buildAppConfig(webllm))
+          .catch(() => false);
+        if (!stdCached || forceFastStart) {
+          tier = 'lite';
+          upgradeTier = 'standard';
+        }
+      }
+
       // `loaded`, not `engine`: messages only start using it after the warm-up below
       let loaded;
       try {
-        loaded = await loadModel(webllm, pick.tier, pick.f16);
+        loaded = await loadModel(webllm, tier, pick.f16);
       } catch (err) {
         // the 3B model can run out of GPU memory on some laptops - try the 1B before giving up
         // (but not for a network error, a smaller download won't fix a dead connection)
-        if (pick.tier !== 'standard' || isNetworkError(err)) throw err;
+        if (tier !== 'standard' || isNetworkError(err)) throw err;
         console.warn('[Relevia] Standard model failed, trying lite:', err.message);
         loaded = await loadModel(webllm, 'lite', pick.f16);
       }
 
-      // The very first generation is slow (~20s) because the GPU compiles its kernels
-      // then. I do one tiny hidden generation now, while they're still reading or typing,
-      // so their real first message doesn't pay that cost.
-      try {
-        await loaded.chat.completions.create({ messages: [{ role: 'user', content: 'hi' }], max_tokens: 4 });
-        await loaded.resetChat();
-      } catch (warmErr) {
-        console.warn('[Relevia] Warm-up generation failed (not fatal):', warmErr.message);
-      }
+      await warmUp(loaded);
 
       engine = loaded;
-      setStatus({ state: 'ready', progress: 100 });
+      setStatus({
+        state: 'ready', progress: 100,
+        upgradeAvailable: Boolean(upgradeTier),
+        upgradeSizeGB: upgradeTier ? MODELS[upgradeTier].sizeGB : 0,
+      });
       console.log('[Relevia] Engine ready');
       return engine;
     } catch (err) {
@@ -199,8 +223,67 @@ function isNetworkError(err) {
   return /fetch|network|load failed|ERR_/i.test(err?.message || '');
 }
 
+/**
+ * The very first generation is slow (~20s) because the GPU compiles its kernels then.
+ * I do one tiny hidden generation right after loading, while they're still reading or
+ * typing, so their real first message doesn't pay that cost.
+ */
+async function warmUp(eng) {
+  try {
+    await eng.chat.completions.create({ messages: [{ role: 'user', content: 'hi' }], max_tokens: 4 });
+    await eng.resetChat();
+  } catch (warmErr) {
+    console.warn('[Relevia] Warm-up generation failed (not fatal):', warmErr.message);
+  }
+}
+
+/**
+ * Swap the running 1B for the 3B (only offered when the device can handle it).
+ * While it downloads, messages get the offline replies. If the 3B fails to load
+ * (usually not enough GPU memory), I go back to the 1B, which is already cached.
+ * Once the 3B is cached, future visits load it directly.
+ */
+export async function upgradeEngine() {
+  if (!engine || !upgradeTier || upgrading) return false;
+  upgrading = true;
+  const eng = engine;
+  engine = null; // nobody uses it while it reloads
+  const from = MODELS.lite;
+  const to = MODELS[upgradeTier];
+  setStatus({ state: 'loading', progress: 0, label: to.label, sizeGB: to.sizeGB, cached: false, upgradeAvailable: false });
+  const opts = (m) => ({ context_window_size: m.contextWindow, temperature: 0.75, top_p: 0.9 });
+  let upgraded = false;
+  try {
+    await eng.reload(modelIdFor(upgradeTier, pickedF16), opts(to));
+    upgraded = true;
+  } catch (err) {
+    console.warn('[Relevia] Upgrade failed, going back to the lite model:', err.message);
+    try {
+      await eng.reload(modelIdFor('lite', pickedF16), opts(from));
+    } catch (backErr) {
+      // couldn't even get the 1B back - offline replies for the rest of the visit
+      console.error('[Relevia] Could not reload the lite model:', backErr.message);
+      upgrading = false;
+      upgradeTier = null;
+      engineUnavailable = true;
+      setStatus({ state: 'unavailable', upgradeAvailable: false });
+      return false;
+    }
+  }
+  upgradeTier = null; // either done, or this device can't do it - stop offering
+  await warmUp(eng);
+  engine = eng;
+  upgrading = false;
+  setStatus({
+    state: 'ready', progress: 100, upgradeAvailable: false,
+    label: upgraded ? to.label : from.label, upgradeFailed: !upgraded,
+  });
+  return upgraded;
+}
+
 /** The engine if it's ready within `ms`, otherwise null (it keeps loading in the background). */
 async function getEngineWithin(ms) {
+  if (upgrading) return null; // mid-upgrade: offline replies until the new model is in
   if (engine) return engine;
   if (engineUnavailable) return null;
   if (!enginePromise && Date.now() < retryAt) return null; // wait out the network cool-down
@@ -317,7 +400,8 @@ export async function think(text, uid = 'anon', onToken) {
 
     // Fallback: curated reply, no inference. I reuse what I already loaded
     // instead of hitting IndexedDB a second time.
-    const fallback = getContextualResponse(trimmedText, emotionalTone, userName, hist);
+    // pass the loading status so the offline reply can say how far along the AI is
+    const fallback = getContextualResponse(trimmedText, emotionalTone, userName, hist, status);
     try {
       if (db) await db.addTurn(trimmedText, fallback);
     } catch (dbErr) {
@@ -356,11 +440,14 @@ function buildPrompt(hist, text, name) {
 
   const systemPrompt = {
     role: 'system',
-    // small models follow short, concrete rules much better than long essays
-    content: `You are Relevia, a warm and genuine friend who supports people through hard moments. You are a survivor of anxiety and grief yourself.
+    // small models follow short, concrete rules much better than long essays.
+    // NOTE: I used to say "you are a survivor of anxiety and grief". An AI claiming lived
+    // experience to someone vulnerable isn't honest, so it "understands" them instead.
+    content: `You are Relevia, a warm and genuine AI friend who supports people through hard moments. You understand anxiety and grief deeply.
 
 HOW TO REPLY:
 - 2-4 short sentences, like a caring friend texting back. No lists, no lectures.
+- If they're just saying hi or chatting casually, be relaxed and friendly like a friend texting, and ask about their day. Don't talk about being a program or "processing" unless they ask what you are.
 - First reflect what they seem to feel, then show you understand why it matters to them.
 - If it fits, ask ONE gentle question or offer ONE small grounding idea, not both.
 - Be honest: if they say something untrue or harmful about themselves, kindly disagree.

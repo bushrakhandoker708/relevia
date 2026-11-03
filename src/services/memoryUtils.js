@@ -45,22 +45,84 @@ const fallbackPool = {
     "I'm really sorry you're feeling this way. You don't have to explain it perfectly, or even know why it hurts. Do you want to tell me what's been weighing on you?",
     "That sounds heavy, and it makes sense that it's getting to you. Be gentle with yourself today, even a glass of water or a few slow breaths counts. I'm here if you want to talk it through."
   ],
+  // neutral = something was said but I can't tell the feeling, so I invite more
   neutral: [
     "I’m here and I’m listening. Tell me more—what’s been on your mind today?",
     "Sometimes we don’t have the words, and that’s okay too. I’m not going anywhere."
   ]
 };
 
-export function getContextualResponse(text, tone, name, history) {
+/*
+ * Small talk. FIX: "hi" used to get "Sometimes we don't have the words..." and
+ * "what r u doing?" got "Tell me more", because everything that wasn't an emotion
+ * fell into the neutral pool. These cover the normal chit-chat people open with.
+ * {ai} gets replaced with a short, honest note about the AI still loading.
+ */
+const SMALL_TALK = [
+  {
+    re: /^\s*(hi+|hey+|hello+|hiya|yo|sup|heya|salam|assalamu\s*alaikum|good\s+(morning|afternoon|evening))\b[\s!.?]*$/i,
+    replies: [
+      "Hey! 😊 I'm really glad you're here. How are you feeling today?{ai}",
+      "Hi there! How's your day going so far, honestly?{ai}",
+    ],
+  },
+  {
+    re: /(what\s+(are|r)\s+(you|u)\s+(doing|up to)|wh?at\s*(are|r)\s*(you|u)\s*doin|who\s+(are|r)\s+(you|u)|what\s+(are|r)\s+(you|u)\b|are\s+(you|u)\s+(real|a\s+bot|ai|human))/i,
+    replies: [
+      "I'm Relevia, an AI friend for when things feel heavy, or for when you just want to talk. Right now I'm here with you!{ai} What's going on with you?",
+      "Just here, keeping you company 💜 I'm an AI, not a person, but I'm all ears. How are you doing?{ai}",
+    ],
+  },
+  {
+    re: /^\s*(how\s+(are|r)\s+(you|u)|how('?s| is)\s+it\s+going|hru|wbu)\b/i,
+    replies: [
+      "I'm good, thanks for asking! 😊 More importantly, how are YOU doing?{ai}",
+    ],
+  },
+  {
+    re: /^\s*(thanks|thank\s+(you|u)|thx|ty)\b/i,
+    replies: [
+      "Anytime 💜 I'm glad I could be here. Anything else on your mind?",
+      "Of course. You don't have to go through things alone.",
+    ],
+  },
+  {
+    re: /^\s*(bye|goodbye|good\s*night|gn|see\s+(you|u|ya)|gotta\s+go|ttyl)\b/i,
+    replies: [
+      "Take care of yourself 💜 I'm here whenever you want to talk again.",
+      "Goodnight! Be gentle with yourself, and come back anytime.",
+    ],
+  },
+];
+
+function aiNote(status) {
+  // only while it's actually loading, and keep it short - this isn't about me
+  if (status?.state === 'loading') {
+    return ` (My full AI is still getting ready on your device, ${status.progress || 0}% done, so my replies are a bit simple for now.)`;
+  }
+  return '';
+}
+
+export function getContextualResponse(text, tone, name, history, status) {
+  const botReplies = (history || []).filter(t => t.role === 'assistant').length;
+
+  // small talk first, but never over an emotion. "hi, I feel awful" is about the feeling.
+  if (tone === 'neutral') {
+    const talk = SMALL_TALK.find(s => s.re.test(text));
+    if (talk) return talk.replies[botReplies % talk.replies.length].replace('{ai}', aiNote(status));
+  }
+
   const pool = fallbackPool[tone] || fallbackPool.neutral;
   // simple rotate so repeats feel less robotic
   // FIX: I used history.length, but history is always user+bot pairs (even) or capped
   // at 12, so it picked the SAME reply every time. Counting bot replies actually rotates.
-  const botReplies = (history || []).filter(t => t.role === 'assistant').length;
   let out = pool[botReplies % pool.length];
   // FIX: I used to replace every "you" with the name, which gave stuff like
-  // "Bushra're not alone" and "I'm right here for Bushra". Just greet them by name instead.
+  // "Bushra're not alone" and "I'm right here for Bushra". Just greet them by name instead,
+  // and only on every 3rd reply - every single time sounded robotic.
   // (keep "I" capitalised, only lowercase normal first words)
-  if (name) out = `${name}, ${/^I\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1)}`;
+  if (name && botReplies % 3 === 0) {
+    out = `${name}, ${/^I\b/.test(out) ? out : out.charAt(0).toLowerCase() + out.slice(1)}`;
+  }
   return out;
 }
