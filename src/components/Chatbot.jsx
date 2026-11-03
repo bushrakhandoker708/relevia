@@ -3,8 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2, VolumeX, Mic, MicOff, AlertCircle } from 'lucide-react';
 
 // Import optimized brain with streaming support
-import { think, warmupEngine } from '../services/releviaBrain';
-import { analyzeEmotionalTone } from '../services/memoryUtils';
+import { think, warmupEngine, rememberName } from '../services/releviaBrain';
+
+// FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
+// pair and left broken characters for the speech engine. This catches every emoji.
+const EMOJI_RE = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
+
+// FIX: my old name detector matched "i'm|i am" + any word, so "I'm sad" set the
+// user's name to "Sad" and "I am tired" made it "Tired". Only explicit intros now.
+const NAME_RE = /\b(?:my name is|my name's|call me|i'm called)\s+([a-z][a-z'-]{1,20})\b/i;
 
 const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis = false, timestamp, currentlySpeaking }) => {
   const [showTimestamp, setShowTimestamp] = useState(false);
@@ -136,24 +143,20 @@ const ChatbotWidget = () => {
   const speechSynthRef = useRef(null);
   const utteranceRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(null); // 0-100 while the model downloads
+  const [streamingId, setStreamingId] = useState(null);   // id of the bot message being streamed
 
-  // Warm up WebGPU + LoRA weights on first render
+  // Warm up the WebGPU model the first time the chat is OPENED.
+  // FIX: I used to do this on first render of Home, which started a ~4-5 GB
+  // download for every visitor, even people who never touched the chat.
   useEffect(() => {
-    const warmupOnce = async () => {
-      if (!window.releviaWarmed) {
-        try {
-          console.log('[Chat] Starting warmup...');
-          await warmupEngine();
-          window.releviaWarmed = true;
-          console.log('[Chat] Warmup complete - ready for first message');
-        } catch (err) {
-          console.warn('[Chat] Warmup skipped:', err);
-        }
-      }
-    };
-    
-    warmupOnce();
-  }, []);
+    if (!isOpen || window.releviaWarmupStarted) return;
+    window.releviaWarmupStarted = true;
+    console.log('[Chat] Starting warmup...');
+    warmupEngine((report) => setLoadProgress(Math.round(report.progress * 100)))
+      .then((ok) => console.log(ok ? '[Chat] Warmup complete - ready for first message' : '[Chat] No WebGPU - using offline replies'))
+      .finally(() => setLoadProgress(null));
+  }, [isOpen]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -215,7 +218,7 @@ const ChatbotWidget = () => {
     speechSynthRef.current.cancel();
 
     const cleanText = text
-      .replace(/[💕💜💙💖🌸✨🫂🌊🦋💚🌿🤗💔🕯️🌟💫🌈🎉💪🌺🕊️]/g, '')
+      .replace(EMOJI_RE, '')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/\*([^*]+)\*/g, '$1')
       .replace(/\s+/g, ' ')
@@ -275,7 +278,8 @@ const ChatbotWidget = () => {
     if (messageCount >= 12) {
       const rateLimitMessage = {
         id: Date.now(),
-        text: `${userName || 'friend'}, we've had a meaningful conversation. Consider taking a break and trying grounding techniques.`,
+        // the input is locked after this, so the crisis lines HAVE to be in here
+        text: `${userName || 'friend'}, we've had a meaningful conversation. Consider taking a break and trying grounding techniques. If you need to talk to someone right now: US/Canada 988, UK 116 123, or findahelpline.com.`,
         isBot: true,
         timestamp: new Date(),
         hasError: true,
@@ -296,10 +300,13 @@ const ChatbotWidget = () => {
     };
 
     const currentMessage = inputMessage.trim();
-    const nameMatch = currentMessage.match(/(?:my name is|i'm|i am)\s+([a-zA-Z]+)/i);
+    const nameMatch = currentMessage.match(NAME_RE);
     if (nameMatch && nameMatch[1]) {
-      const detectedName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+      const detectedName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
       setUserName(detectedName);
+      // FIX: the name only lived in React state, so the model never saw it
+      // (db.getName() was always ''). Save it so releviaBrain can use it.
+      await rememberName(detectedName, userId);
     }
 
     setInputMessage('');
@@ -312,20 +319,22 @@ const ChatbotWidget = () => {
       console.log('[Chat] Sending message:', currentMessage);
       
       let partialMessage = '';
-      let botMessageId = Date.now() + 1;
+      const botMessageId = Date.now() + 1;
 
-      // OPTIMIZATION: Stream tokens live to UI
+      // Stream tokens live to UI
+      // FIX: the streamed text was being written into a bot message that didn't
+      // exist yet (I only added it after think() finished), and I was mutating
+      // state objects directly. Now I add the bubble on the first token and
+      // update it immutably.
       const response = await think(currentMessage, userId, (token) => {
         partialMessage += token;
-        
-        // Update the last bot message with partial response
+        const text = partialMessage;
+        setStreamingId(botMessageId);
         setMessages(prev => {
-          const newMessages = [...prev];
-          const lastBotMsg = newMessages.findLast(m => m.isBot && m.id === botMessageId);
-          if (lastBotMsg) {
-            lastBotMsg.text = partialMessage;
+          if (!prev.some(m => m.id === botMessageId)) {
+            return [...prev, { id: botMessageId, text, isBot: true, timestamp: new Date(), isCrisis: false }];
           }
-          return newMessages;
+          return prev.map(m => (m.id === botMessageId ? { ...m, text } : m));
         });
       });
 
@@ -343,7 +352,14 @@ const ChatbotWidget = () => {
         isCrisis: isCrisisResponse
       };
 
-      setMessages(prev => [...prev, botMessage]);
+      // replace the streamed bubble if there is one, otherwise add the reply
+      // (crisis + fallback replies don't stream). Before, a streamed reply would
+      // have shown up twice.
+      setMessages(prev =>
+        prev.some(m => m.id === botMessageId)
+          ? prev.map(m => (m.id === botMessageId ? botMessage : m))
+          : [...prev, botMessage]
+      );
 
       if (voiceEnabled) {
         setTimeout(() => {
@@ -377,6 +393,7 @@ const ChatbotWidget = () => {
     } finally {
       console.log('[Chat] Message complete');
       setIsTyping(false);
+      setStreamingId(null);
     }
   };
 
@@ -397,6 +414,8 @@ const ChatbotWidget = () => {
   };
 
   const getConnectionStatusText = () => {
+    // show model download progress so people know why the first reply is slow
+    if (loadProgress !== null && loadProgress < 100) return `Loading ${loadProgress}%`;
     switch (connectionStatus) {
       case 'connected': return 'Ready';
       case 'connecting': return 'Thinking...';
@@ -532,7 +551,8 @@ const ChatbotWidget = () => {
                       currentlySpeaking={currentlySpeaking === message.id}
                     />
                   ))}
-                  {isTyping && <Message message="" isBot={true} isTyping={true} />}
+                  {/* hide the dots once the streamed reply bubble is showing */}
+                  {isTyping && !streamingId && <Message message="" isBot={true} isTyping={true} />}
                   <div ref={messagesEndRef} />
                 </motion.div>
               )}
@@ -611,7 +631,8 @@ const ChatbotWidget = () => {
         )}
       </AnimatePresence>
 
-      <style jsx={true}>{`
+      {/* FIX: `jsx` is a Next.js styled-jsx thing, in Vite it just threw a React warning */}
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }

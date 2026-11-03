@@ -551,7 +551,8 @@ const startExercise = useCallback(() => {
       </div>
 
       {/* Bio-feedback Debug Info - Development only */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* FIX: was process.env.NODE_ENV, Vite uses import.meta.env */}
+      {import.meta.env.DEV && (
         <motion.div 
           className="fixed top-4 left-4 backdrop-blur-md rounded-xl p-3 text-sm shadow-lg z-30 border"
           style={{

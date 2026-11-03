@@ -58,7 +58,8 @@ class ErrorBoundary extends React.Component {
     });
 
     // Log error in development
-    if (process.env.NODE_ENV === 'development') {
+    // FIX: was process.env.NODE_ENV, `process` doesn't exist in the browser with Vite
+    if (import.meta.env.DEV) {
       console.group('🚨 Error Boundary Caught an Error');
       console.error('Error:', error);
       console.error('Error Info:', errorInfo);
@@ -266,7 +267,7 @@ class ErrorBoundary extends React.Component {
           </div>
 
           {/* Error Details Toggle (for development/debugging) */}
-          {(process.env.NODE_ENV === 'development' || showDetails) && (
+          {(import.meta.env.DEV || showDetails) && (
             <div className="border-t border-neutral-200 pt-6">
               <button
                 onClick={this.toggleDetails}
