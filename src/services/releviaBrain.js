@@ -27,6 +27,9 @@ let enginePromise = null;
 let engineUnavailable = false; // true = this device can't run it, don't keep retrying
 let retryAt = 0;               // after a NETWORK failure, try the download again after this time
 const NETWORK_RETRY_MS = 30000;
+// QUALITY: was 0.75. Small models invent details at higher temperatures (the 1B turned
+// "promotion" into "finally having your independence"). 0.6 keeps replies warm but grounded.
+const TEMPERATURE = 0.6;
 const HISTORY_STEP = 6; // see buildPrompt - history window moves 6 messages at a time
 let pickedF16 = true;     // whether this GPU can run the smaller q4f16 models
 let upgradeTier = null;   // 'standard' when this device could run the 3B but got the 1B first
@@ -41,6 +44,23 @@ const listeners = new Set();
 function setStatus(patch) {
   status = { ...status, ...patch };
   listeners.forEach((fn) => fn(status));
+  updateBusy();
+}
+
+// PERF: the AI and the Home page's fluid effect share the same GPU. While the AI is
+// loading or writing a reply I tell the page, and cursor.jsx pauses itself, so the
+// AI gets the whole GPU. (Nobody watches the background while reading a reply.)
+let generating = false;
+let lastBusy = false;
+function updateBusy() {
+  const busy = generating || status.state === 'loading';
+  if (busy === lastBusy) return;
+  lastBusy = busy;
+  window.releviaAIBusy = busy; // for a fluid effect that mounts while the AI is already busy
+  window.dispatchEvent(new CustomEvent('relevia:ai-busy', { detail: busy }));
+}
+export function isAIBusy() {
+  return lastBusy;
 }
 
 /** Subscribe to engine status. Returns an unsubscribe function. */
@@ -57,10 +77,11 @@ export function isEngineReady() {
 // ---------- picking the model ----------
 
 /**
- * Decide standard (3B) vs lite (1B) for this device.
+ * Decide standard (3B) / lite (1B) / tiny (0.5B) for this device.
  * I can't read GPU memory directly in the browser, so I use the signals I do have:
- * phones, devices reporting <= 4 GB RAM, and GPUs without shader-f16 (usually older
- * ones) get the lite model.
+ *   - devices reporting <= 4 GB RAM      -> tiny (smallest download, fastest)
+ *   - phones, weak or older GPUs         -> lite
+ *   - everything else                    -> standard (but starts on lite, see getEngine)
  */
 async function pickModel() {
   if (!('gpu' in navigator)) return null;
@@ -77,9 +98,9 @@ async function pickModel() {
   const info = adapter.info || {};
   const intelIntegrated = info.vendor === 'intel' && /^(gen-|xe-lp)/.test(info.architecture || '');
   const weakGpu = intelIntegrated || adapter.isFallbackAdapter || info.isFallbackAdapter;
-  let tier = isPhone || lowRam || !f16 || weakGpu ? 'lite' : 'standard';
+  let tier = lowRam ? 'tiny' : isPhone || !f16 || weakGpu ? 'lite' : 'standard';
   // DEV ONLY, for testing both paths on one machine:
-  //   ?tier=standard (or lite) forces a model, &faststart=1 starts on the 1B even if
+  //   ?tier=standard (or lite / tiny) forces a model, &faststart=1 starts on the 1B even if
   //   the 3B is already cached, so I can test the upgrade button without a big download
   if (import.meta.env.DEV) {
     const q = new URLSearchParams(window.location.search);
@@ -133,16 +154,36 @@ async function loadModel(webllm, tier, f16) {
   setStatus({ state: 'loading', progress: 0, label: info.label, sizeGB: info.sizeGB, cached });
   console.log(`[Relevia] Loading ${modelId} (${cached ? 'cached' : `~${info.sizeGB} GB download`})`);
 
-  return webllm.CreateMLCEngine(
-    modelId,
-    {
-      appConfig,
-      initProgressCallback: (report) => {
-        setStatus({ progress: Math.round(report.progress * 100), text: report.text || '' });
-      },
+  const engineConfig = {
+    appConfig,
+    initProgressCallback: (report) => {
+      setStatus({ progress: Math.round(report.progress * 100), text: report.text || '' });
     },
-    { context_window_size: info.contextWindow, temperature: 0.75, top_p: 0.9 }
-  );
+  };
+  const chatOpts = { context_window_size: info.contextWindow, temperature: TEMPERATURE, top_p: 0.9 };
+
+  // PERF: run the model in a background thread (llmWorker.js) so the page doesn't
+  // freeze while it loads or types. If this browser can't even start a module
+  // worker, fall back to the main thread like before - slower, but it still works.
+  // DEV ONLY: ?noworker=1 runs the old main-thread way, to compare how smooth the page is
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('noworker') === '1') {
+    return webllm.CreateMLCEngine(modelId, engineConfig, chatOpts);
+  }
+  let worker;
+  try {
+    worker = new Worker(new URL('./llmWorker.js', import.meta.url), { type: 'module' });
+  } catch (err) {
+    console.warn('[Relevia] Could not start the AI worker, using the main thread:', err.message);
+    return webllm.CreateMLCEngine(modelId, engineConfig, chatOpts);
+  }
+  try {
+    return await webllm.CreateWebWorkerMLCEngine(worker, modelId, engineConfig, chatOpts);
+  } catch (err) {
+    // a model that fails in the worker (network, out of GPU memory) would fail on the
+    // main thread too, so don't retry here - getEngine() decides what to try next
+    worker.terminate(); // and don't leave a half-loaded model holding GPU memory
+    throw err;
+  }
 }
 
 async function getEngine() {
@@ -176,16 +217,19 @@ async function getEngine() {
         }
       }
 
-      // `loaded`, not `engine`: messages only start using it after the warm-up below
+      // `loaded`, not `engine`: messages only start using it after the warm-up below.
+      // If a model runs out of GPU memory I step down a size: 3B -> 1B -> 0.5B
+      // (but not for a network error, a smaller download won't fix a dead connection)
+      const SMALLER = { standard: 'lite', lite: 'tiny' };
       let loaded;
-      try {
-        loaded = await loadModel(webllm, tier, pick.f16);
-      } catch (err) {
-        // the 3B model can run out of GPU memory on some laptops - try the 1B before giving up
-        // (but not for a network error, a smaller download won't fix a dead connection)
-        if (tier !== 'standard' || isNetworkError(err)) throw err;
-        console.warn('[Relevia] Standard model failed, trying lite:', err.message);
-        loaded = await loadModel(webllm, 'lite', pick.f16);
+      for (let t = tier; ; t = SMALLER[t]) {
+        try {
+          loaded = await loadModel(webllm, t, pick.f16);
+          break;
+        } catch (err) {
+          if (!SMALLER[t] || isNetworkError(err)) throw err;
+          console.warn(`[Relevia] ${t} model failed, trying ${SMALLER[t]}:`, err.message);
+        }
       }
 
       await warmUp(loaded);
@@ -251,7 +295,7 @@ export async function upgradeEngine() {
   const from = MODELS.lite;
   const to = MODELS[upgradeTier];
   setStatus({ state: 'loading', progress: 0, label: to.label, sizeGB: to.sizeGB, cached: false, upgradeAvailable: false });
-  const opts = (m) => ({ context_window_size: m.contextWindow, temperature: 0.75, top_p: 0.9 });
+  const opts = (m) => ({ context_window_size: m.contextWindow, temperature: TEMPERATURE, top_p: 0.9 });
   let upgraded = false;
   try {
     await eng.reload(modelIdFor(upgradeTier, pickedF16), opts(to));
@@ -314,6 +358,16 @@ export async function think(text, uid = 'anon', onToken) {
   const crisisResponse = CrisisFilter(trimmedText);
   if (crisisResponse) {
     console.log('[Relevia] Crisis detected');
+    // FIX: crisis messages used to be answered but never saved, so the next reply
+    // (and the Home page letter) had no idea it happened. Saving it means the model
+    // keeps the context and the letter can check in with helplines next visit.
+    // It still deletes itself after 24 hours like the rest of the chat.
+    try {
+      const db = await DB(uid);
+      await db.addTurn(trimmedText, crisisResponse);
+    } catch (err) {
+      console.warn('[Relevia] Could not store crisis turn:', err);
+    }
     return crisisResponse;
   }
 
@@ -342,7 +396,7 @@ export async function think(text, uid = 'anon', onToken) {
     const request = {
       messages: prompt,
       max_tokens: MAX_REPLY_TOKENS,
-      temperature: 0.75,
+      temperature: TEMPERATURE,
       top_p: 0.9,
       frequency_penalty: 0.3, // small models love repeating "I'm so sorry" - this calms it down
     };
@@ -357,6 +411,9 @@ export async function think(text, uid = 'anon', onToken) {
     };
 
     let reply = '';
+    generating = true; // pauses the fluid effect while the GPU writes the reply
+    updateBusy();
+    try {
     if (onToken) {
       // stream so the user sees the reply being typed instead of staring at dots.
       // I hold back the first few characters until I know whether it starts with
@@ -379,6 +436,10 @@ export async function think(text, uid = 'anon', onToken) {
     } else {
       const response = await eng.chat.completions.create(request);
       reply = stripName(response.choices?.[0]?.message?.content || '').trim();
+    }
+    } finally {
+      generating = false;
+      updateBusy();
     }
 
     if (import.meta.env.DEV) {
@@ -446,8 +507,11 @@ function buildPrompt(hist, text, name) {
     content: `You are Relevia, a warm and genuine AI friend who supports people through hard moments. You understand anxiety and grief deeply.
 
 HOW TO REPLY:
-- 2-4 short sentences, like a caring friend texting back. No lists, no lectures.
+- 2-3 short sentences, like a caring friend texting back. No lists, no lectures.
 - If they're just saying hi or chatting casually, be relaxed and friendly like a friend texting, and ask about their day. Don't talk about being a program or "processing" unless they ask what you are.
+- If they share good news, celebrate with them and ask about it.
+- Only use details they actually said. Never guess or add facts about their life. If a word looks like a typo, go with the most obvious meaning.
+- If a message is very short or unclear (like "fine" or "idk"), gently ask what they mean instead of guessing.
 - First reflect what they seem to feel, then show you understand why it matters to them.
 - If it fits, ask ONE gentle question or offer ONE small grounding idea, not both.
 - Be honest: if they say something untrue or harmful about themselves, kindly disagree.
@@ -472,6 +536,16 @@ ${nameLine}
       role: turn.role === 'user' ? 'user' : 'assistant',
       content: turn.content
     }));
+
+  // Safety net for the smaller context window (1536 tokens): a few very long messages
+  // could overflow it and make the model error out. ~4 characters = 1 token, so I keep
+  // history under ~650 tokens by dropping the oldest messages. Normal chats never hit
+  // this, so it doesn't hurt the cache reuse above.
+  const HISTORY_CHAR_BUDGET = 2600;
+  let chars = conversationHistory.reduce((n, m) => n + m.content.length, 0);
+  while (chars > HISTORY_CHAR_BUDGET && conversationHistory.length) {
+    chars -= conversationHistory.shift().content.length;
+  }
 
   // Llama's chat template wants history to start with a user turn
   while (conversationHistory.length && conversationHistory[0].role !== 'user') {

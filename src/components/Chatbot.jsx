@@ -4,6 +4,7 @@ import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2,
 
 // Import optimized brain with streaming support
 import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from '../services/releviaBrain';
+import { PREFETCH_AFTER_MS } from '../services/modelConfig';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -164,16 +165,33 @@ const ChatbotWidget = () => {
   // keep the header in sync with the model loading in releviaBrain
   useEffect(() => onEngineStatus(setEngineStatus), []);
 
-  // Warm up the WebGPU model the first time the chat is OPENED.
+  // Start loading the AI. Safe to call many times, it only ever starts once.
   // FIX: I used to do this on first render of Home, which started a multi-GB
   // download for every visitor, even people who never touched the chat.
-  useEffect(() => {
-    if (!isOpen || window.releviaWarmupStarted) return;
+  const startWarmup = (why) => {
+    if (window.releviaWarmupStarted) return;
     window.releviaWarmupStarted = true;
-    console.log('[Chat] Starting warmup...');
+    console.log(`[Chat] Starting warmup (${why})...`);
     warmupEngine().then((ok) =>
       console.log(ok ? '[Chat] Warmup complete - ready for first message' : '[Chat] No WebGPU - using offline replies'));
+  };
+
+  // opening the chat always starts it
+  useEffect(() => {
+    if (isOpen) startWarmup('chat opened');
   }, [isOpen]);
+
+  // PERF: timed prefetch (see PREFETCH_AFTER_MS in modelConfig.js) - only on a fast,
+  // unmetered connection on a laptop/desktop, because it's a big download for someone
+  // who may never chat. Browsers without navigator.connection (Firefox, Safari) skip it.
+  useEffect(() => {
+    if (!PREFETCH_AFTER_MS) return;
+    const c = navigator.connection;
+    const phone = navigator.userAgentData?.mobile ?? /Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (!c || c.saveData || c.effectiveType !== '4g' || c.type === 'cellular' || phone) return;
+    const t = setTimeout(() => startWarmup('prefetch'), PREFETCH_AFTER_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // Tell people ONCE what's happening, so a slow first visit doesn't feel broken.
   // I'm honest about it: it's a one-time download and it stays on their device.
@@ -486,6 +504,11 @@ const ChatbotWidget = () => {
       >
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
+          // PERF: hovering/focusing the button means they're about to chat - start
+          // loading now, it buys a second or two before they even click
+          onMouseEnter={() => startWarmup('hover')}
+          onFocus={() => startWarmup('focus')}
+          onTouchStart={() => startWarmup('touch')}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className={`bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 hover:from-purple-600 hover:via-pink-600 hover:to-red-600 text-white ${
@@ -523,7 +546,8 @@ const ChatbotWidget = () => {
                   <h3 className="font-bold text-sm sm:text-lg">Relevia</h3>
                   {/* the privacy promise is the whole point of running on-device, so say it */}
                   <p className="text-white/90 text-xs sm:text-sm">
-                    {engineStatus.label === 'Relevia Lite' ? 'Lite mode · ' : ''}Private · runs on your device
+                    {/* "Lite mode · " / "Mini mode · " for the smaller models */}
+                    {engineStatus.label && engineStatus.label !== 'Relevia' ? `${engineStatus.label.replace('Relevia ', '')} mode · ` : ''}Private · runs on your device
                   </p>
                 </div>
               </div>

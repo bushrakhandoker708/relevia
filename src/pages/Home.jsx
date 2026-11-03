@@ -6,6 +6,8 @@ import Lottie from 'lottie-react';
 import heartAnimation from '../assets/animation/heart.json';
 import Cursor from '../components/cursor';
 import ChatbotWidget from '../components/Chatbot';
+import useCalmAnimation from '../hooks/useCalmAnimation';
+import { recordVisit, getChatContext, buildLetter } from '../services/personalLetter';
 import SplashCursor from '../components/cursor';
 
 // Fixed scroll indicator
@@ -46,6 +48,14 @@ const ScrollIndicator = ({ scrollY }) => {
 };
 
 function Home() {
+  // PERF: the heart loops only while it's on screen, and not at all with "reduce motion"
+  const heart = useCalmAnimation();
+  const heartLottie = useRef(null);
+  useEffect(() => {
+    if (heart.shouldPlay) heartLottie.current?.play();
+    else heartLottie.current?.pause();
+  }, [heart.shouldPlay]);
+
   const { scrollY } = useScroll();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
@@ -182,17 +192,19 @@ function Home() {
     }
   ], []);
 
-  // Letter content
-  const letterContent = useMemo(() => ({
-    greeting: "Hey beautiful soul,",
-    opening: "I see you here, and I want you to know—you're incredibly brave just for being present in this moment. Right now, in this very second, you are exactly where you need to be.",
-    affirmation: "You are safe. You are loved. You are enough—not because of what you do, but simply because you exist.",
-    breathing: "Let's breathe together, shall we? Place one hand on your heart, feel its gentle rhythm. Now, breathe in slowly through your nose for 4 counts... hold for 4... and release through your mouth for 6.",
-    grounding: "Notice three things you can see right now—maybe the gentle glow of your screen, a photo that brings you joy, or shadows dancing on the wall. Listen for two sounds. Feel one thing—the warmth of your hands or the support of your chair.",
-    encouragement: "Whatever you're feeling right now—anxiety, sadness, overwhelm, or numbness—it's valid, and it's temporary. You've weathered every storm in your life so far, and that strength lives within you still.",
-    closing: "Take all the time you need. Move gently through your day. You don't have to be perfect or have everything figured out. Just be kind to yourself.",
-    signature: "With infinite love and gentle support,",
-  }), []);
+  // Letter content - personalised for whoever is reading it (services/personalLetter.js).
+  // It shows instantly from the visit info, then fills in their name and a gentle
+  // follow-up on their last chat once that's read from this browser's storage.
+  const [visit] = useState(recordVisit);
+  const [letterContent, setLetterContent] = useState(() =>
+    buildLetter(visit, { name: '', feeling: null, chatted: false }));
+  useEffect(() => {
+    let alive = true;
+    getChatContext().then((chat) => {
+      if (alive) setLetterContent(buildLetter(visit, chat));
+    });
+    return () => { alive = false; };
+  }, [visit]);
 
   return (
     <>
@@ -235,7 +247,10 @@ function Home() {
               }}
               className="relative z-10"
             >
+              <div ref={heart.ref}>
               <Lottie 
+                lottieRef={heartLottie}
+                autoplay={!heart.reduceMotion}
                 animationData={heartAnimation} 
                 loop={true} 
                 speed={0.3} 
@@ -248,6 +263,7 @@ function Home() {
                 role="img"
                 aria-label="Animated heart representing peace and wellness"
               />
+              </div>
             </motion.div>
           </motion.div>
 
@@ -371,7 +387,12 @@ function Home() {
                     delay: index * 0.1, 
                     duration: 1.5 
                   }}
-                  className="text-neutral-700 leading-relaxed text-lg sm:text-xl font-body hover:text-neutral-800 transition-colors duration-500"
+                  className={
+                    letterContent.urgent && paragraph === letterContent.encouragement
+                      // the crisis follow-up (with helplines) gets a soft highlight so it isn't skimmed past
+                      ? "text-neutral-800 leading-relaxed text-lg sm:text-xl font-body bg-rose-50 border-l-4 border-rose-300 rounded-r-lg px-4 py-3"
+                      : "text-neutral-700 leading-relaxed text-lg sm:text-xl font-body hover:text-neutral-800 transition-colors duration-500"
+                  }
                   viewport={{ once: true }}
                 >
                   {paragraph}
