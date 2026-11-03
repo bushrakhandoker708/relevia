@@ -8,8 +8,13 @@ const CHAT_STORE = 'chat';
 const META_STORE = 'meta';
 const EPS = 0.1; // ε-differential privacy
 
+// FIX: I was opening a brand new IndexedDB connection on EVERY message and never
+// closing it. Now I open it once and reuse it.
+// NOTE: uid isn't used yet, everyone on this browser shares one history.
+let dbPromise = null;
+
 export const DB = async (uid) => {
-  const dbPromise = new Promise((res, rej) => {
+  if (!dbPromise) dbPromise = new Promise((res, rej) => {
     const req = indexedDB.open(DB_NAME, 3);
     
     req.onerror = () => {
@@ -47,7 +52,13 @@ export const DB = async (uid) => {
     };
   });
   
-  const db = await dbPromise;
+  let db;
+  try {
+    db = await dbPromise;
+  } catch (err) {
+    dbPromise = null; // let the next call try again instead of caching the failure
+    throw err;
+  }
 
   return {
     /**

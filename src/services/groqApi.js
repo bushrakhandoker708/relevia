@@ -3,6 +3,11 @@
  * Keeps 12-turn sliding window per user in localStorage
  * Falls back to a huge curated pool if Groq is down
  * Exports: fetchGroqResponse(userText, userId) -> Promise<string>
+ *
+ * ⚠️ NOT USED right now (Chatbot.jsx uses releviaBrain.js). Don't import this into
+ * the frontend as-is: anything starting with VITE_ gets baked into the public JS
+ * bundle, so anyone could copy my Groq key from DevTools. If I bring Groq back it
+ * has to go through a tiny backend / serverless function that holds the key.
  */
 import { analyzeEmotionalTone, getContextualResponse } from './memoryUtils';
 
