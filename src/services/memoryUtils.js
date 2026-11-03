@@ -10,6 +10,8 @@ export function analyzeEmotionalTone(text) {
   if (/(grief|died|death|loss|funeral)/.test(t)) return 'grief';
   if (/(angry|furious|betrayed|rage)/.test(t)) return 'anger';
   if (/(lonely|isolated|no friends|abandoned)/.test(t)) return 'lonely';
+  // FIX: plain "I'm sad" used to fall through to neutral and get a generic reply
+  if (/\b(sad|down|low|upset|crying|cried|hurt|heartbroken|miserable)\b/.test(t)) return 'sad';
   return 'neutral';
 }
 
@@ -38,6 +40,10 @@ const fallbackPool = {
   lonely: [
     "Loneliness feels like a hollow room, but you just invited me in, so the room isn’t empty anymore. While I’m AI, my care is real. Can you send one ‘hey, thinking of you’ text to someone today? No pressure for deep talk—just a thread back to humanity. You deserve connection.",
     "I’m sitting virtually beside you. If human contact feels too big right now, how about ambient connection—go to a café, library, park. Just be around people, no talking required. Sometimes our nervous systems reset simply by sharing space."
+  ],
+  sad: [
+    "I'm really sorry you're feeling this way. You don't have to explain it perfectly, or even know why it hurts. Do you want to tell me what's been weighing on you?",
+    "That sounds heavy, and it makes sense that it's getting to you. Be gentle with yourself today, even a glass of water or a few slow breaths counts. I'm here if you want to talk it through."
   ],
   neutral: [
     "I’m here and I’m listening. Tell me more—what’s been on your mind today?",

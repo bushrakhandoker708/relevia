@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8" />
+    <title>Relevia</title>
     <script>
-      const segment = 1;
-      const redirect = location.pathname.split('/').slice(0, 1 + segment).join('/');
-      location.replace(redirect || '/');
+      // GitHub Pages has no SPA routing, so opening /relevia/coping directly lands here.
+      // FIX: my old version just sent everyone back to the home page and lost the path.
+      // Now I pass the path along and main.jsx puts it back before React starts.
+      var base = '/relevia';
+      var l = window.location;
+      var rest = l.pathname.indexOf(base) === 0 ? l.pathname.slice(base.length) : l.pathname;
+      l.replace(base + '/?p=' + encodeURIComponent(rest + l.search) + l.hash);
     </script>
   </head>
 </html>

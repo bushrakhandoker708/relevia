@@ -1,87 +1,212 @@
 /**
  * releviaBrain.js
- * 1. Runs Llama-3.1-8B *inside the browser* via WebGPU (no server, no leak).
- * 2. Keeps a 24-hour sliding window of chat history in IndexedDB.
- * 3. Instant on-device crisis check before any inference.
- * 4. Falls back to curated replies when WebGPU isn't available.
- * 5. Exports: think(userText, userId, onToken?) → Promise<string>, warmupEngine()
+ * 1. Runs a small Llama model *inside the browser* via WebGPU (no server, no leak).
+ * 2. Picks the right model size for the device (3B normally, 1B on weaker devices).
+ * 3. Keeps a 24-hour sliding window of chat history in IndexedDB.
+ * 4. Instant on-device crisis check before any inference.
+ * 5. Never makes the user wait for the download: if the model isn't ready yet,
+ *    they get a curated offline reply straight away while it keeps loading.
+ * 6. Exports: think(), warmupEngine(), onEngineStatus(), rememberName(), isEngineReady()
  *
- * FIXES (v2):
- * - CreateMLCEngine(modelId, engineConfig, chatOpts): I had my options in the wrong
- *   slots. initProgressCallback was in chatOpts (so no progress ever showed) and
- *   lora / contextWindowSize / temperature were in engineConfig, which ignores them.
- * - There is NO `lora` option in WebLLM. My adapter was never loaded, the bot was
- *   always plain Llama-3.1-8B. (And the adapter was trained for a different setup
- *   anyway, see model train/train_lora.py.) Removed it so I stop fooling myself.
- * - Chatbot.jsx passes a streaming callback but think() ignored it. Streaming works now.
- * - If the device has no WebGPU I used to retry the multi-GB init on every single
- *   message. Now I check once and go straight to the fallback.
- * - History: getHist(12).slice(-6) only gave the model 3 exchanges. Uses MAX_TURNS now.
+ * HISTORY OF FIXES:
+ * v2 - options were in the wrong CreateMLCEngine slots, the `lora` option doesn't
+ *      exist in WebLLM, streaming was ignored, no-WebGPU devices retried forever.
+ * v3 - switched from Llama-3.1-8B (~6 GB, minutes per reply) to 3B/1B (modelConfig.js),
+ *      auto-retry with the lite model if the big one runs out of memory, answer
+ *      instantly with an offline reply while loading, support my own fine-tuned model.
  */
 
 import { DB } from './db.js';
 import { CrisisFilter } from './safety.js';
 import { getContextualResponse, analyzeEmotionalTone } from './memoryUtils.js';
 import { MAX_TURNS } from './consts.js';
-
-// q4f16 is ~1 GB smaller in VRAM but needs the shader-f16 GPU feature, q4f32 works everywhere
-const MODEL_F16 = 'Llama-3.1-8B-Instruct-q4f16_1-MLC';
-const MODEL_F32 = 'Llama-3.1-8B-Instruct-q4f32_1-MLC';
+import { MODELS, CUSTOM_MODEL, READY_WAIT_MS, MAX_REPLY_TOKENS } from './modelConfig.js';
 
 let engine = null;
 let enginePromise = null;
 let engineUnavailable = false; // true = this device can't run it, don't keep retrying
+let retryAt = 0;               // after a NETWORK failure, try the download again after this time
+const NETWORK_RETRY_MS = 30000;
+const HISTORY_STEP = 6; // see buildPrompt - history window moves 6 messages at a time
 
+// ---------- status that the chat UI can listen to ----------
+// state: 'idle' | 'loading' | 'ready' | 'unavailable'
+let status = { state: 'idle', progress: 0, label: '', sizeGB: 0, cached: false, text: '' };
+const listeners = new Set();
+
+function setStatus(patch) {
+  status = { ...status, ...patch };
+  listeners.forEach((fn) => fn(status));
+}
+
+/** Subscribe to engine status. Returns an unsubscribe function. */
+export function onEngineStatus(fn) {
+  listeners.add(fn);
+  fn(status);
+  return () => listeners.delete(fn);
+}
+
+export function isEngineReady() {
+  return engine !== null;
+}
+
+// ---------- picking the model ----------
+
+/**
+ * Decide standard (3B) vs lite (1B) for this device.
+ * I can't read GPU memory directly in the browser, so I use the signals I do have:
+ * phones, devices reporting <= 4 GB RAM, and GPUs without shader-f16 (usually older
+ * ones) get the lite model.
+ */
 async function pickModel() {
   if (!('gpu' in navigator)) return null;
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) return null;
-  return adapter.features.has('shader-f16') ? MODEL_F16 : MODEL_F32;
+
+  const f16 = adapter.features.has('shader-f16');
+  const isPhone = navigator.userAgentData?.mobile ?? /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const lowRam = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  // FIX: I tested 3B on an Intel Iris Xe laptop (the most common laptop GPU) and it
+  // only managed ~2.5 words/sec, way too slow to feel like texting a friend. Intel
+  // integrated GPUs (arch "gen-..." / "xe-lp") get the 1B model. Intel Arc (discrete)
+  // reports "xe-hpg"/"xe-hpc" and keeps the 3B.
+  const info = adapter.info || {};
+  const intelIntegrated = info.vendor === 'intel' && /^(gen-|xe-lp)/.test(info.architecture || '');
+  const weakGpu = intelIntegrated || adapter.isFallbackAdapter || info.isFallbackAdapter;
+  const tier = isPhone || lowRam || !f16 || weakGpu ? 'lite' : 'standard';
+  console.log(`[Relevia] GPU: ${info.vendor || '?'} ${info.architecture || ''} -> ${tier} model`);
+  return { tier, f16 };
 }
 
-async function getEngine(onProgress) {
+function modelIdFor(tier, f16) {
+  // my fine-tuned model replaces its tier, but only if the GPU can run its quantization
+  if (CUSTOM_MODEL && CUSTOM_MODEL.tier === tier && (f16 || !CUSTOM_MODEL.base.includes('q4f16'))) {
+    return CUSTOM_MODEL.model_id;
+  }
+  return MODELS[tier][f16 ? 'f16' : 'f32'];
+}
+
+/**
+ * WebLLM only knows its own prebuilt models. If I have a fine-tuned one, I register
+ * it here, reusing the compiled GPU code (model_lib) of the base model it came from.
+ * Same architecture + same quantization = same model_lib, only the weights differ.
+ */
+function buildAppConfig(webllm) {
+  if (!CUSTOM_MODEL) return undefined;
+  const base = webllm.prebuiltAppConfig.model_list.find((m) => m.model_id === CUSTOM_MODEL.base);
+  if (!base) {
+    console.warn('[Relevia] CUSTOM_MODEL.base not found in WebLLM, ignoring my fine-tune');
+    return undefined;
+  }
+  return {
+    ...webllm.prebuiltAppConfig,
+    model_list: [
+      ...webllm.prebuiltAppConfig.model_list,
+      { ...base, model: CUSTOM_MODEL.model, model_id: CUSTOM_MODEL.model_id },
+    ],
+  };
+}
+
+async function loadModel(webllm, tier, f16) {
+  const modelId = modelIdFor(tier, f16);
+  const appConfig = buildAppConfig(webllm);
+  const info = MODELS[tier];
+
+  let cached = false;
+  try {
+    cached = await webllm.hasModelInCache(modelId, appConfig);
+  } catch {
+    // cache check isn't important, just affects the "one-time download" message
+  }
+  setStatus({ state: 'loading', progress: 0, label: info.label, sizeGB: info.sizeGB, cached });
+  console.log(`[Relevia] Loading ${modelId} (${cached ? 'cached' : `~${info.sizeGB} GB download`})`);
+
+  return webllm.CreateMLCEngine(
+    modelId,
+    {
+      appConfig,
+      initProgressCallback: (report) => {
+        setStatus({ progress: Math.round(report.progress * 100), text: report.text || '' });
+      },
+    },
+    { context_window_size: info.contextWindow, temperature: 0.75, top_p: 0.9 }
+  );
+}
+
+async function getEngine() {
   if (engine) return engine;
   if (engineUnavailable) throw new Error('WebGPU not available on this device');
   if (enginePromise) return enginePromise;
 
   enginePromise = (async () => {
     try {
-      const modelId = await pickModel();
-      if (!modelId) {
+      const pick = await pickModel();
+      if (!pick) {
         engineUnavailable = true;
+        setStatus({ state: 'unavailable' });
         throw new Error('WebGPU not available on this device');
       }
-      console.log(`[Relevia] Initializing WebGPU engine (${modelId})...`);
 
       const webllm = await import('@mlc-ai/web-llm');
+      // `loaded`, not `engine`: messages only start using it after the warm-up below
+      let loaded;
+      try {
+        loaded = await loadModel(webllm, pick.tier, pick.f16);
+      } catch (err) {
+        // the 3B model can run out of GPU memory on some laptops - try the 1B before giving up
+        // (but not for a network error, a smaller download won't fix a dead connection)
+        if (pick.tier !== 'standard' || isNetworkError(err)) throw err;
+        console.warn('[Relevia] Standard model failed, trying lite:', err.message);
+        loaded = await loadModel(webllm, 'lite', pick.f16);
+      }
 
-      engine = await webllm.CreateMLCEngine(
-        modelId,
-        // 2nd arg = engine config
-        {
-          initProgressCallback: (report) => {
-            console.log(`[Relevia] Loading: ${Math.round(report.progress * 100)}% ${report.text || ''}`);
-            onProgress?.(report);
-          },
-        },
-        // 3rd arg = chat options (snake_case, same as mlc-chat-config.json)
-        {
-          context_window_size: 2048,
-          temperature: 0.75,
-          top_p: 0.9,
-        }
-      );
+      // The very first generation is slow (~20s) because the GPU compiles its kernels
+      // then. I do one tiny hidden generation now, while they're still reading or typing,
+      // so their real first message doesn't pay that cost.
+      try {
+        await loaded.chat.completions.create({ messages: [{ role: 'user', content: 'hi' }], max_tokens: 4 });
+        await loaded.resetChat();
+      } catch (warmErr) {
+        console.warn('[Relevia] Warm-up generation failed (not fatal):', warmErr.message);
+      }
 
+      engine = loaded;
+      setStatus({ state: 'ready', progress: 100 });
       console.log('[Relevia] Engine ready');
       return engine;
     } catch (err) {
       console.error('[Relevia] Failed to initialize engine:', err);
       enginePromise = null;
+      if (isNetworkError(err)) {
+        // FIX: I used to give up for the whole visit on ANY failure, so one wifi
+        // hiccup meant offline replies until a page reload. Network errors retry later.
+        retryAt = Date.now() + NETWORK_RETRY_MS;
+        setStatus({ state: 'network' });
+      } else if (!engineUnavailable) {
+        // a load failure on a device that HAS WebGPU usually means not enough memory,
+        // retrying on every message would just hang the chat again
+        engineUnavailable = true;
+        setStatus({ state: 'unavailable' });
+      }
       throw new Error(`WebGPU initialization failed: ${err.message}`);
     }
   })();
 
   return enginePromise;
+}
+
+function isNetworkError(err) {
+  return /fetch|network|load failed|ERR_/i.test(err?.message || '');
+}
+
+/** The engine if it's ready within `ms`, otherwise null (it keeps loading in the background). */
+async function getEngineWithin(ms) {
+  if (engine) return engine;
+  if (engineUnavailable) return null;
+  if (!enginePromise && Date.now() < retryAt) return null; // wait out the network cool-down
+  const loading = getEngine().catch(() => null);
+  const timeout = new Promise((res) => setTimeout(() => res(null), ms));
+  return Promise.race([loading, timeout]);
 }
 
 /**
@@ -119,42 +244,63 @@ export async function think(text, uid = 'anon', onToken) {
   const emotionalTone = analyzeEmotionalTone(trimmedText);
 
   try {
-    // Load history and context
     db = await DB(uid);
-    hist = await db.getHist(MAX_TURNS);
+    // fetch a bit more than I send, buildPrompt picks a stable window out of it
+    hist = await db.getHist(MAX_TURNS * 2);
     userName = await db.getName();
 
     console.log(`[Relevia] Tone: ${emotionalTone}, History: ${hist.length} messages`);
 
-    const prompt = buildPrompt(hist, trimmedText, userName, emotionalTone);
-    const eng = await getEngine();
+    // don't make them wait for a multi-GB download - offline reply now, AI when ready
+    const eng = await getEngineWithin(READY_WAIT_MS);
+    if (!eng) throw new Error('Model not ready yet');
+
+    const prompt = buildPrompt(hist, trimmedText, userName);
+    const request = {
+      messages: prompt,
+      max_tokens: MAX_REPLY_TOKENS,
+      temperature: 0.75,
+      top_p: 0.9,
+      frequency_penalty: 0.3, // small models love repeating "I'm so sorry" - this calms it down
+    };
+
+    // FIX: even when told not to, the 3B model opens almost every reply with
+    // "Bushra, ...". The prompt alone can't stop it, so I strip it in code.
+    const namePrefix = userName ? new RegExp(`^\\s*${userName}[,!.]?\\s*`, 'i') : null;
+    const stripName = (s) => {
+      if (!namePrefix || !namePrefix.test(s)) return s;
+      const rest = s.replace(namePrefix, '');
+      return rest.charAt(0).toUpperCase() + rest.slice(1);
+    };
 
     let reply = '';
     if (onToken) {
-      // stream so the user sees the reply being typed instead of staring at dots
-      const chunks = await eng.chat.completions.create({
-        messages: prompt,
-        max_tokens: 256,
-        temperature: 0.75,
-        top_p: 0.9,
-        stream: true,
-      });
+      // stream so the user sees the reply being typed instead of staring at dots.
+      // I hold back the first few characters until I know whether it starts with
+      // their name, so the name never flashes up and then disappears.
+      const holdUntil = userName ? userName.length + 2 : 0;
+      let sent = 0;
+      const chunks = await eng.chat.completions.create({ ...request, stream: true });
       for await (const chunk of chunks) {
         const delta = chunk.choices?.[0]?.delta?.content || '';
-        if (delta) {
-          reply += delta;
-          onToken(delta);
+        if (!delta) continue;
+        reply += delta;
+        if (reply.length < holdUntil) continue;
+        const shown = stripName(reply);
+        if (shown.length > sent) {
+          onToken(shown.slice(sent));
+          sent = shown.length;
         }
       }
-      reply = reply.trim();
+      reply = stripName(reply).trim();
     } else {
-      const response = await eng.chat.completions.create({
-        messages: prompt,
-        max_tokens: 256,
-        temperature: 0.75,
-        top_p: 0.9,
-      });
-      reply = response.choices?.[0]?.message?.content?.trim();
+      const response = await eng.chat.completions.create(request);
+      reply = stripName(response.choices?.[0]?.message?.content || '').trim();
+    }
+
+    if (import.meta.env.DEV) {
+      // real speed numbers (prefill + decode tokens/sec) for checking performance
+      eng.runtimeStatsText().then((s) => console.log('[Relevia] Speed:', s)).catch(() => {});
     }
 
     if (!reply) {
@@ -196,23 +342,45 @@ export async function rememberName(name, uid = 'anon') {
 /**
  * Build system + context prompt
  */
-function buildPrompt(hist, text, name, tone) {
+function buildPrompt(hist, text, name) {
+  // SPEED: this system prompt must be IDENTICAL on every turn. WebLLM then reuses
+  // what it already read and only processes the new message, instead of re-reading
+  // the whole chat every time (that was ~10s per reply on a laptop GPU).
+  // So no per-message stuff in here any more (I used to put the detected tone here).
+  // (The detected tone is still used for the offline fallback replies.)
+  // The name is fine: once they tell me, it stays the same.
+  // (The "don't start with their name" rule is backed up by stripName() in think().)
+  const nameLine = name
+    ? `- Their name is ${name}. Use it rarely, and never as the first word.`
+    : '- Never start your reply with their name.';
+
   const systemPrompt = {
     role: 'system',
-    // FIX: one guideline was missing its "-" and "TONE" was repeated twice
-    content: `You are Relevia, a 26-year-old empathetic AI friend who supports people with their mental health. You are a survivor of anxiety and grief.
+    // small models follow short, concrete rules much better than long essays
+    content: `You are Relevia, a warm and genuine friend who supports people through hard moments. You are a survivor of anxiety and grief yourself.
 
-GUIDELINES:
-- Reply in 2-4 warm, genuine sentences, like a caring friend texting back
-- Validate their feelings first, then offer at most one small grounding idea
-- Never give medical advice or diagnoses; encourage professional help for serious issues
-- Use their name (${name || 'friend'}) naturally when it fits
-- Detected emotional tone: ${tone}
-- No disclaimers unless they mention self-harm or suicidal thoughts`
+HOW TO REPLY:
+- 2-4 short sentences, like a caring friend texting back. No lists, no lectures.
+- First reflect what they seem to feel, then show you understand why it matters to them.
+- If it fits, ask ONE gentle question or offer ONE small grounding idea, not both.
+- Be honest: if they say something untrue or harmful about themselves, kindly disagree.
+- Never give medical advice or diagnoses; encourage professional help for serious issues.
+${nameLine}
+- If they mention self-harm or wanting to die, take it seriously and point them to a crisis line (988 in the US) or emergency services.`
   };
 
+  // SPEED: "always the last 12 messages" meant the start of the chat changed on every
+  // turn, so WebLLM could never reuse its work. Now the window jumps in steps of
+  // HISTORY_STEP messages: between jumps the earlier part stays identical and only the
+  // new message has to be read. The model sees between HISTORY_STEP and
+  // 2*HISTORY_STEP - 2 earlier messages.
+  // I anchor it to each message's IndexedDB id (it only ever counts up), not its
+  // position in `hist`, because `hist` itself is "the last 24" and slides too.
+  const pos = (turn, i) => turn.id ?? i + 1;
+  const total = hist.length ? pos(hist[hist.length - 1], hist.length - 1) : 0;
+  const startPos = Math.max(0, total - HISTORY_STEP - (total % HISTORY_STEP));
   const conversationHistory = hist
-    .slice(-MAX_TURNS)
+    .filter((turn, i) => pos(turn, i) > startPos)
     .map(turn => ({
       role: turn.role === 'user' ? 'user' : 'assistant',
       content: turn.content
@@ -228,21 +396,16 @@ GUIDELINES:
 
 /**
  * Start downloading / compiling the model in the background.
- * NOTE: this is a ~4-5 GB download the first time, only call it once the user
- * actually opens the chat (I used to call it on every Home page load).
+ * Only call this once the user actually opens the chat.
  */
-export async function warmupEngine(onProgress) {
+export async function warmupEngine() {
   try {
     console.log('[Relevia] Starting background warmup...');
-    await getEngine(onProgress);
+    await getEngine();
     console.log('[Relevia] Warmup complete');
     return true;
   } catch (err) {
     console.warn('[Relevia] Warmup failed (using fallback replies):', err.message);
     return false;
   }
-}
-
-export function isEngineReady() {
-  return engine !== null;
 }

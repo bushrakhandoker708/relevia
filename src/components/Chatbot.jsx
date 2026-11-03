@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2, VolumeX, Mic, MicOff, AlertCircle } from 'lucide-react';
 
 // Import optimized brain with streaming support
-import { think, warmupEngine, rememberName } from '../services/releviaBrain';
+import { think, warmupEngine, rememberName, onEngineStatus } from '../services/releviaBrain';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -143,20 +143,38 @@ const ChatbotWidget = () => {
   const speechSynthRef = useRef(null);
   const utteranceRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [loadProgress, setLoadProgress] = useState(null); // 0-100 while the model downloads
+  const [engineStatus, setEngineStatus] = useState({ state: 'idle', progress: 0 });
   const [streamingId, setStreamingId] = useState(null);   // id of the bot message being streamed
+  const noticeShownRef = useRef(false);
+
+  // keep the header in sync with the model loading in releviaBrain
+  useEffect(() => onEngineStatus(setEngineStatus), []);
 
   // Warm up the WebGPU model the first time the chat is OPENED.
-  // FIX: I used to do this on first render of Home, which started a ~4-5 GB
+  // FIX: I used to do this on first render of Home, which started a multi-GB
   // download for every visitor, even people who never touched the chat.
   useEffect(() => {
     if (!isOpen || window.releviaWarmupStarted) return;
     window.releviaWarmupStarted = true;
     console.log('[Chat] Starting warmup...');
-    warmupEngine((report) => setLoadProgress(Math.round(report.progress * 100)))
-      .then((ok) => console.log(ok ? '[Chat] Warmup complete - ready for first message' : '[Chat] No WebGPU - using offline replies'))
-      .finally(() => setLoadProgress(null));
+    warmupEngine().then((ok) =>
+      console.log(ok ? '[Chat] Warmup complete - ready for first message' : '[Chat] No WebGPU - using offline replies'));
   }, [isOpen]);
+
+  // Tell people ONCE what's happening, so a slow first visit doesn't feel broken.
+  // I'm honest about it: it's a one-time download and it stays on their device.
+  useEffect(() => {
+    if (noticeShownRef.current) return;
+    let text = null;
+    if (engineStatus.state === 'loading' && !engineStatus.cached) {
+      text = `I'm setting up my private AI on your device (about ${engineStatus.sizeGB} GB, only the first time). Your chats never leave this browser. Until it's ready I'll still reply, just more simply 💜`;
+    } else if (engineStatus.state === 'unavailable') {
+      text = "Heads up: this browser can't run my AI (it needs WebGPU, e.g. a recent Chrome or Edge on a laptop). I'm still here to listen, with simpler replies.";
+    }
+    if (!text) return;
+    noticeShownRef.current = true;
+    setMessages(prev => [...prev, { id: Date.now(), text, isBot: true, timestamp: new Date(), isCrisis: false }]);
+  }, [engineStatus.state, engineStatus.cached, engineStatus.sizeGB]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -414,8 +432,10 @@ const ChatbotWidget = () => {
   };
 
   const getConnectionStatusText = () => {
-    // show model download progress so people know why the first reply is slow
-    if (loadProgress !== null && loadProgress < 100) return `Loading ${loadProgress}%`;
+    // show model download progress so people know why replies are simpler for now
+    if (engineStatus.state === 'loading') return `Loading AI ${engineStatus.progress}%`;
+    if (engineStatus.state === 'unavailable' && connectionStatus === 'connected') return 'Offline mode';
+    if (engineStatus.state === 'network' && connectionStatus === 'connected') return 'No connection, retrying';
     switch (connectionStatus) {
       case 'connected': return 'Ready';
       case 'connecting': return 'Thinking...';
@@ -487,7 +507,10 @@ const ChatbotWidget = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm sm:text-lg">Relevia</h3>
-                  <p className="text-white/90 text-xs sm:text-sm">Fast & caring support</p>
+                  {/* the privacy promise is the whole point of running on-device, so say it */}
+                  <p className="text-white/90 text-xs sm:text-sm">
+                    {engineStatus.label === 'Relevia Lite' ? 'Lite mode · ' : ''}Private · runs on your device
+                  </p>
                 </div>
               </div>
               

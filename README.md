@@ -34,17 +34,36 @@ Relevia is a web application designed to help individuals manage and overcome pa
    ```
 4. Start the development server:
    ```bash
-   npm start
+   npm run dev
    ```
 
 ## Usage
 
-Once the development server is running, open [http://localhost:3000](http://localhost:3000) in your browser. Explore the navigation menu to access different sections:
+Once the development server is running, open [http://localhost:5173](http://localhost:5173) in your browser. Explore the navigation menu to access different sections:
 
 - **What is it actually?**: Learn about panic attacks.
 - **Coping Techniques**: Interactive exercises and tools.
 - **Medication**: Information on medications.
 - **Contact**: Reach out for support or collaboration.
+
+## The Relevia chatbot
+
+The chat runs a small AI model **inside the visitor's browser** with WebGPU (via [WebLLM](https://github.com/mlc-ai/web-llm)). No server is involved, and conversations never leave the device.
+
+- **Model:** Llama-3.2-3B on stronger GPUs, Llama-3.2-1B on phones, low-memory devices and Intel integrated graphics. The choice is automatic; see `src/services/modelConfig.js` and `pickModel()` in `src/services/releviaBrain.js`.
+- **First visit:** a one-time download (about 0.9 GB or 2.3 GB), cached by the browser. Until it's ready, Relevia answers instantly with curated offline replies.
+- **No WebGPU** (older browsers, most of Firefox and Safari): offline replies only.
+- **Safety:** crisis messages are caught on-device before any AI runs (`src/services/safety.js`) and always get crisis-line information.
+- **Speed check:** in `npm run dev`, every reply logs `[Relevia] Speed: prefill … decoding … tokens/sec` in the browser console.
+- **Using a fine-tuned model:** train and export it with `relevia-research/notebooks/train_for_app.ipynb`, then paste the printed `CUSTOM_MODEL` into `src/services/modelConfig.js`.
+
+## Deploying
+
+```bash
+npm run deploy
+```
+
+This builds with the `/relevia/` base path for GitHub Pages and publishes `dist/` to the `gh-pages` branch. Plain `npm run build` builds for the site root (`/`), for example Vercel.
 
 ## Contributing
 
