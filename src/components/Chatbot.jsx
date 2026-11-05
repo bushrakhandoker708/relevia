@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2, VolumeX, Mic, MicOff, AlertCircle } from 'lucide-react';
 
 // Import optimized brain with streaming support
 import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from '../services/releviaBrain';
 import { PREFETCH_AFTER_MS } from '../services/modelConfig';
+import { chatStore, newSessionId, deleteLegacyChat } from '../services/chatStorage.js';
+import ChatPrivacy from './ChatPrivacy.jsx';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -14,11 +16,11 @@ const EMOJI_RE = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
 // user's name to "Sad" and "I am tired" made it "Tired". Only explicit intros now.
 const NAME_RE = /\b(?:my name is|my name's|call me|i'm called)\s+([a-z][a-z'-]{1,20})\b/i;
 
-const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis = false, timestamp, currentlySpeaking }) => {
+const Message = ({ message, isBot, isTyping = false, isCrisis = false, timestamp, currentlySpeaking }) => {
   const [showTimestamp, setShowTimestamp] = useState(false);
   
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
@@ -28,7 +30,7 @@ const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis 
     >
       <div className={`flex items-start max-w-[85%] sm:max-w-[80%] ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
         {isBot && (
-          <motion.div
+          <Motion.div
             animate={{ 
               scale: isCrisis ? [1, 1.05, 1] : currentlySpeaking ? [1, 1.08, 1] : [1, 1.02, 1],
             }}
@@ -52,11 +54,11 @@ const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis 
             ) : (
               <Heart className="text-white text-xs sm:text-sm" />
             )}
-          </motion.div>
+          </Motion.div>
         )}
         
         <div className="relative">
-          <motion.div 
+          <Motion.div
             whileHover={{ scale: 1.02 }}
             className={`px-3 sm:px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm relative overflow-hidden transition-all duration-200 ${
               isBot 
@@ -72,7 +74,7 @@ const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis 
               <div className="flex space-x-2 items-center py-1">
                 <span className="text-xs sm:text-sm text-purple-600 mr-2 font-medium">Typing...</span>
                 {[0, 1, 2].map((i) => (
-                  <motion.div
+                  <Motion.div
                     key={i}
                     animate={{ 
                       scale: [1, 1.5, 1],
@@ -91,18 +93,18 @@ const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis 
             ) : (
               <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">{message}</p>
             )}
-          </motion.div>
+          </Motion.div>
           
           <AnimatePresence>
             {showTimestamp && timestamp && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
                 className={`absolute top-0 ${isBot ? 'left-0' : 'right-0'} text-xs text-gray-400 -mt-5`}
               >
                 {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -113,7 +115,7 @@ const Message = ({ message, isBot, isTyping = false, hasError = false, isCrisis 
           </div>
         )}
       </div>
-    </motion.div>
+    </Motion.div>
   );
 };
 
@@ -121,12 +123,12 @@ const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [currentlySpeaking, setCurrentlySpeaking] = useState(null);
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hey there! I'm Relevia, and I'm genuinely here for you. Think of me as your caring friend who's always ready to listen. What's on your heart today?",
+      text: "I'm Relevia, an AI for general supportive conversation, not a therapist or emergency service. What would you like to talk about?",
       isBot: true,
       timestamp: new Date(),
       isCrisis: false
@@ -137,7 +139,25 @@ const ChatbotWidget = () => {
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const [messageCount, setMessageCount] = useState(0);
   const [userName, setUserName] = useState('');
-  const [userId] = useState('anon');
+  const [userId, setUserId] = useState(newSessionId);
+  const generationEpoch = useRef(0);
+  const [legacyWarning, setLegacyWarning] = useState('');
+  const resetChat = () => {
+    generationEpoch.current++;
+    chatStore.invalidateAll();
+    setUserId(newSessionId()); setMessages([]); setUserName(''); setInputMessage('');
+    setMessageCount(0); setStreamingId(null); setIsTyping(false);
+    speechSynthRef.current?.cancel();
+  };
+  useEffect(() => {
+    // Purge old shared data without importing it into a new session. Failure is visible.
+    deleteLegacyChat().catch(err => setLegacyWarning(err.message));
+    const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('relevia-chat-clear') : null;
+    if (channel) channel.onmessage = () => resetChat();
+    const endSession = () => resetChat();
+    window.addEventListener('pagehide', endSession);
+    return () => { channel?.close(); window.removeEventListener('pagehide', endSession); };
+  }, []);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -199,7 +219,7 @@ const ChatbotWidget = () => {
     if (noticeShownRef.current) return;
     let text = null;
     if (engineStatus.state === 'loading' && !engineStatus.cached) {
-      text = `I'm setting up my private AI on your device (about ${engineStatus.sizeGB} GB, only the first time). Your chats never leave this browser. Until it's ready I'll still reply, just more simply 💜`;
+      text = `I'm setting up my private AI on your device (about ${engineStatus.sizeGB} GB, only the first time). Chat generation runs locally; model downloads and optional browser voice services have separate data flows. Until it's ready I'll still reply, just more simply 💜`;
     } else if (engineStatus.state === 'unavailable') {
       text = "Heads up: this browser can't run my AI (it needs WebGPU, e.g. a recent Chrome or Edge on a laptop). I'm still here to listen, with simpler replies.";
     }
@@ -350,6 +370,7 @@ const ChatbotWidget = () => {
     };
 
     const currentMessage = inputMessage.trim();
+    const requestEpoch = generationEpoch.current;
     const nameMatch = currentMessage.match(NAME_RE);
     if (nameMatch && nameMatch[1]) {
       const detectedName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
@@ -357,6 +378,7 @@ const ChatbotWidget = () => {
       // FIX: the name only lived in React state, so the model never saw it
       // (db.getName() was always ''). Save it so releviaBrain can use it.
       await rememberName(detectedName, userId);
+      if (requestEpoch !== generationEpoch.current) return;
     }
 
     setInputMessage('');
@@ -366,7 +388,7 @@ const ChatbotWidget = () => {
 
     try {
       setConnectionStatus('connecting');
-      console.log('[Chat] Sending message:', currentMessage);
+
       
       let partialMessage = '';
       const botMessageId = Date.now() + 1;
@@ -377,6 +399,7 @@ const ChatbotWidget = () => {
       // state objects directly. Now I add the bubble on the first token and
       // update it immutably.
       const response = await think(currentMessage, userId, (token) => {
+        if (requestEpoch !== generationEpoch.current) return;
         partialMessage += token;
         const text = partialMessage;
         setStreamingId(botMessageId);
@@ -388,8 +411,8 @@ const ChatbotWidget = () => {
         });
       });
 
+      if (requestEpoch !== generationEpoch.current) return;
       setConnectionStatus('connected');
-      console.log('[Chat] Response complete:', response.substring(0, 50));
 
       const isCrisisResponse = response.includes('988') || response.includes('116 123') || response.includes('findahelpline');
 
@@ -413,12 +436,12 @@ const ChatbotWidget = () => {
 
       if (voiceEnabled) {
         setTimeout(() => {
-          speakMessage(botMessage.text, botMessage.id);
+          if (requestEpoch === generationEpoch.current) speakMessage(botMessage.text, botMessage.id);
         }, 200);
       }
 
-    } catch (error) {
-      console.error('[Chat] Error:', error);
+    } catch {
+      if (requestEpoch !== generationEpoch.current) return;
       setConnectionStatus('error');
       
       const errorMessage = {
@@ -434,16 +457,17 @@ const ChatbotWidget = () => {
       
       if (voiceEnabled) {
         setTimeout(() => {
-          speakMessage(errorMessage.text, errorMessage.id);
+          if (requestEpoch === generationEpoch.current) speakMessage(errorMessage.text, errorMessage.id);
         }, 100);
       }
       
       setTimeout(() => setConnectionStatus('connected'), 5000);
 
     } finally {
-      console.log('[Chat] Message complete');
-      setIsTyping(false);
-      setStreamingId(null);
+      if (requestEpoch === generationEpoch.current) {
+        setIsTyping(false);
+        setStreamingId(null);
+      }
     }
   };
 
@@ -496,13 +520,13 @@ const ChatbotWidget = () => {
 
   return (
     <>
-      <motion.div
+      <Motion.div
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.4 }}
         className={`fixed ${isMobile ? 'left-4 right-4 bottom-6' : 'left-6 bottom-6'} z-50`}
       >
-        <motion.button
+        <Motion.button
           onClick={() => setIsOpen(!isOpen)}
           // PERF: hovering/focusing the button means they're about to chat - start
           // loading now, it buys a second or two before they even click
@@ -515,22 +539,22 @@ const ChatbotWidget = () => {
             isMobile ? 'px-4 py-3 text-sm' : 'px-6 py-4'
           } rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 sm:space-x-3 w-full sm:w-auto`}
         >
-          <motion.div
+          <Motion.div
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.3 }}
           >
             {isOpen ? <X className="text-lg sm:text-xl" /> : <MessageCircle className="text-lg sm:text-xl" />}
-          </motion.div>
+          </Motion.div>
           <span className="font-semibold text-sm sm:text-base">
             {isOpen ? 'Close' : 'Chat with Relevia'}
           </span>
           <Heart className="text-red-300 fill-red-300 text-sm sm:text-base" />
-        </motion.button>
-      </motion.div>
+        </Motion.button>
+      </Motion.div>
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -547,38 +571,38 @@ const ChatbotWidget = () => {
                   {/* the privacy promise is the whole point of running on-device, so say it */}
                   <p className="text-white/90 text-xs sm:text-sm">
                     {/* "Lite mode · " / "Mini mode · " for the smaller models */}
-                    {engineStatus.label && engineStatus.label !== 'Relevia' ? `${engineStatus.label.replace('Relevia ', '')} mode · ` : ''}Private · runs on your device
+                    {engineStatus.label && engineStatus.label !== 'Relevia' ? `${engineStatus.label.replace('Relevia ', '')} mode · ` : ''}AI · local inference
                   </p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-2">
-                <motion.button
+                <Motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={toggleVoice}
                   className={`p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors`}
                 >
                   {voiceEnabled ? <Mic className="w-3 h-3 sm:w-4 sm:h-4" /> : <MicOff className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </motion.button>
+                </Motion.button>
 
-                <motion.button
+                <Motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setSoundEnabled(!soundEnabled)}
                   className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors"
                 >
                   {soundEnabled ? <Volume2 className="w-3 h-3 sm:w-4 sm:h-4" /> : <VolumeX className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </motion.button>
+                </Motion.button>
                 
-                <motion.button
+                <Motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsMinimized(!isMinimized)}
                   className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors"
                 >
                   {isMinimized ? <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" /> : <Minimize2 className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </motion.button>
+                </Motion.button>
                 
                 <div className="flex flex-col items-center">
-                  <motion.div
+                  <Motion.div
                     animate={{ 
                       scale: connectionStatus === 'connecting' ? [1, 1.2, 1] : 1,
                     }}
@@ -593,9 +617,16 @@ const ChatbotWidget = () => {
               </div>
             </div>
 
+            <ChatPrivacy sessionId={userId} busy={isTyping} legacyWarning={legacyWarning}
+              onReset={resetChat} onRestore={(id, rows) => {
+                generationEpoch.current++; setUserId(id); setUserName(''); setMessageCount(0);
+                speechSynthRef.current?.cancel();
+                setMessages(rows.map(r => ({ id: r.id, text: r.content, isBot: r.role === 'assistant', timestamp: new Date(r.ts) })));
+              }} />
+
             <AnimatePresence>
               {!isMinimized && (
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -615,13 +646,13 @@ const ChatbotWidget = () => {
                   {/* hide the dots once the streamed reply bubble is showing */}
                   {isTyping && !streamingId && <Message message="" isBot={true} isTyping={true} />}
                   <div ref={messagesEndRef} />
-                </motion.div>
+                </Motion.div>
               )}
             </AnimatePresence>
 
             <AnimatePresence>
               {!isMinimized && (
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -641,13 +672,13 @@ const ChatbotWidget = () => {
                       Emotional support • Not therapy • In crisis? 988
                     </p>
                   )}
-                </motion.div>
+                </Motion.div>
               )}
             </AnimatePresence>
 
             <AnimatePresence>
               {!isMinimized && (
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -665,7 +696,7 @@ const ChatbotWidget = () => {
                       disabled={isTyping || messageCount >= 12}
                       maxLength={500}
                     />
-                    <motion.button
+                    <Motion.button
                       onClick={handleSendMessage}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -673,7 +704,7 @@ const ChatbotWidget = () => {
                       className="px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
                     >
                       <Send className="text-sm" />
-                    </motion.button>
+                    </Motion.button>
                   </div>
                   
                   <div className="flex items-center justify-between mt-2">
@@ -687,19 +718,19 @@ const ChatbotWidget = () => {
                     </div>
                     
                     {messageCount >= 10 && (
-                      <motion.p
+                      <Motion.p
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-xs text-purple-600 font-medium"
                       >
                         {12 - messageCount} messages left
-                      </motion.p>
+                      </Motion.p>
                     )}
                   </div>
-                </motion.div>
+                </Motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 

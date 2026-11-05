@@ -1,8 +1,8 @@
 /**
  * releviaBrain.js
- * 1. Runs a small Llama model *inside the browser* via WebGPU (no server, no leak).
+ * 1. Runs a small Llama model *inside the browser* via WebGPU.
  * 2. Picks the right model size for the device (3B normally, 1B on weaker devices).
- * 3. Keeps a 24-hour sliding window of chat history in IndexedDB.
+ * 3. Uses memory by default; optional local history has a 24-hour retention limit.
  * 4. Instant on-device crisis check before any inference.
  * 5. Never makes the user wait for the download: if the model isn't ready yet,
  *    they get a curated offline reply straight away while it keeps loading.
@@ -17,6 +17,7 @@
  */
 
 import { DB } from './db.js';
+import { newSessionId } from './chatStorage.js';
 import { CrisisFilter } from './safety.js';
 import { getContextualResponse, analyzeEmotionalTone } from './memoryUtils.js';
 import { MAX_TURNS } from './consts.js';
@@ -243,7 +244,7 @@ async function getEngine() {
       console.log('[Relevia] Engine ready');
       return engine;
     } catch (err) {
-      console.error('[Relevia] Failed to initialize engine:', err);
+      console.error('[Relevia] Failed to initialize engine');
       enginePromise = null;
       if (isNetworkError(err)) {
         // FIX: I used to give up for the whole visit on ANY failure, so one wifi
@@ -343,7 +344,7 @@ async function getEngineWithin(ms) {
  * @param {(token: string) => void} [onToken] - called with each new chunk while streaming
  * @returns {Promise<string>} - Bot response
  */
-export async function think(text, uid = 'anon', onToken) {
+export async function think(text, uid = newSessionId(), onToken) {
   if (!text || typeof text !== 'string') {
     return 'I didn\'t quite catch that. Could you share more?';
   }
@@ -357,16 +358,13 @@ export async function think(text, uid = 'anon', onToken) {
   // wanting to die never gets "could you summarize?" back
   const crisisResponse = CrisisFilter(trimmedText);
   if (crisisResponse) {
-    console.log('[Relevia] Crisis detected');
-    // FIX: crisis messages used to be answered but never saved, so the next reply
-    // (and the Home page letter) had no idea it happened. Saving it means the model
-    // keeps the context and the letter can check in with helplines next visit.
-    // It still deletes itself after 24 hours like the rest of the chat.
+
+    // Keep crisis context only in memory and disable saving for the session.
     try {
       const db = await DB(uid);
-      await db.addTurn(trimmedText, crisisResponse);
-    } catch (err) {
-      console.warn('[Relevia] Could not store crisis turn:', err);
+      await db.addTurn(trimmedText, crisisResponse, { sensitive: true });
+    } catch {
+      console.warn('[Relevia] Storage operation unavailable');
     }
     return crisisResponse;
   }
@@ -386,7 +384,7 @@ export async function think(text, uid = 'anon', onToken) {
     hist = await db.getHist(MAX_TURNS * 2);
     userName = await db.getName();
 
-    console.log(`[Relevia] Tone: ${emotionalTone}, History: ${hist.length} messages`);
+
 
     // don't make them wait for a multi-GB download - offline reply now, AI when ready
     const eng = await getEngineWithin(READY_WAIT_MS);
@@ -428,7 +426,7 @@ export async function think(text, uid = 'anon', onToken) {
         if (reply.length < holdUntil) continue;
         const shown = stripName(reply);
         if (shown.length > sent) {
-          onToken(shown.slice(sent));
+          if (db.isCurrent()) onToken(shown.slice(sent));
           sent = shown.length;
         }
       }
@@ -451,22 +449,22 @@ export async function think(text, uid = 'anon', onToken) {
       throw new Error('Empty response from model');
     }
 
-    await db.addTurn(trimmedText, reply);
+    try { await db.addTurn(trimmedText, reply); } catch { /* UI reports saving status separately */ }
 
-    console.log('[Relevia] Response generated:', reply.substring(0, 50) + '...');
+
     return reply;
 
-  } catch (error) {
-    console.warn('[Relevia] Using fallback reply:', error.message);
+  } catch {
+    console.warn('[Relevia] Using curated fallback reply');
 
     // Fallback: curated reply, no inference. I reuse what I already loaded
-    // instead of hitting IndexedDB a second time.
+    // instead of rereading the session.
     // pass the loading status so the offline reply can say how far along the AI is
     const fallback = getContextualResponse(trimmedText, emotionalTone, userName, hist, status);
     try {
       if (db) await db.addTurn(trimmedText, fallback);
-    } catch (dbErr) {
-      console.warn('[Relevia] Could not store interaction:', dbErr);
+    } catch {
+      console.warn('[Relevia] Storage operation unavailable');
     }
     return fallback;
   }
@@ -475,12 +473,12 @@ export async function think(text, uid = 'anon', onToken) {
 /**
  * Remember the user's name so the model (and fallback replies) can use it
  */
-export async function rememberName(name, uid = 'anon') {
+export async function rememberName(name, uid = newSessionId()) {
   try {
     const db = await DB(uid);
     await db.setName(name);
-  } catch (err) {
-    console.warn('[Relevia] Could not save name:', err);
+  } catch {
+    console.warn('[Relevia] Name remains unavailable');
   }
 }
 
@@ -525,7 +523,7 @@ ${nameLine}
   // HISTORY_STEP messages: between jumps the earlier part stays identical and only the
   // new message has to be read. The model sees between HISTORY_STEP and
   // 2*HISTORY_STEP - 2 earlier messages.
-  // I anchor it to each message's IndexedDB id (it only ever counts up), not its
+  // I anchor it to each message's session-local id (it only ever counts up), not its
   // position in `hist`, because `hist` itself is "the last 24" and slides too.
   const pos = (turn, i) => turn.id ?? i + 1;
   const total = hist.length ? pos(hist[hist.length - 1], hist.length - 1) : 0;

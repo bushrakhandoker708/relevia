@@ -1,0 +1,15 @@
+name: Privacy foundation
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.17.1'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx eslint src/services/db.js src/services/chatStorage.js src/services/releviaBrain.js src/services/personalLetter.js src/services/groqApi.js src/components/Chatbot.jsx src/components/ChatPrivacy.jsx src/components/ErrorBoundary.jsx src/components/errorBoundaryHelpers.jsx tests/*.js eslint.config.js --max-warnings 0
+      - run: npm run build

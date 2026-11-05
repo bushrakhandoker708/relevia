@@ -52,57 +52,14 @@ class ErrorBoundary extends React.Component {
    * @param {Error} error - The caught error
    * @param {Object} errorInfo - Additional error information
    */
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(_error, errorInfo) {
     this.setState({
       errorInfo: errorInfo,
     });
 
-    // Log error in development
-    // FIX: was process.env.NODE_ENV, `process` doesn't exist in the browser with Vite
-    if (import.meta.env.DEV) {
-      console.group('🚨 Error Boundary Caught an Error');
-      console.error('Error:', error);
-      console.error('Error Info:', errorInfo);
-      console.error('Component Stack:', errorInfo.componentStack);
-      console.groupEnd();
-    }
-
-    // In production, you might want to send this to an error reporting service
-    this.logErrorToService(error, errorInfo);
+    // Do not persist error messages, stack traces or URLs: they may contain user content.
   }
 
-  /**
-   * Log error to external service (implement based on your needs)
-   * @param {Error} error - The caught error
-   * @param {Object} errorInfo - Additional error information
-   */
-  logErrorToService = (error, errorInfo) => {
-    // Example: Send to error tracking service
-    // In a real app, you might use services like:
-    // - Sentry: Sentry.captureException(error, { extra: errorInfo });
-    // - LogRocket: LogRocket.captureException(error);
-    // - Custom API: fetch('/api/errors', { method: 'POST', body: JSON.stringify({...}) });
-    
-    try {
-      const errorData = {
-        message: error.message,
-        stack: error.stack,
-        componentStack: errorInfo?.componentStack,
-        errorId: this.state.errorId,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-      };
-
-      // Store locally for development/debugging
-      localStorage.setItem(`error_${this.state.errorId}`, JSON.stringify(errorData));
-      
-      // TODO: Replace with your actual error reporting service
-      console.log('Error logged:', errorData);
-    } catch (loggingError) {
-      console.error('Failed to log error:', loggingError);
-    }
-  };
 
   /**
    * Attempt to retry/recover from the error
@@ -309,31 +266,5 @@ class ErrorBoundary extends React.Component {
     );
   }
 }
-
-/**
- * Higher-Order Component wrapper for functional components
- * @param {React.Component} Component - Component to wrap
- * @param {Object} errorBoundaryProps - Props to pass to ErrorBoundary
- * @returns {React.Component} Wrapped component
- */
-export const withErrorBoundary = (Component, errorBoundaryProps = {}) => {
-  return function WithErrorBoundaryComponent(props) {
-    return (
-      <ErrorBoundary {...errorBoundaryProps}>
-        <Component {...props} />
-      </ErrorBoundary>
-    );
-  };
-};
-
-/**
- * Hook for manually triggering error boundary (for testing)
- * @returns {Function} Function to trigger error
- */
-export const useErrorHandler = () => {
-  return (error) => {
-    throw error;
-  };
-};
 
 export default ErrorBoundary;

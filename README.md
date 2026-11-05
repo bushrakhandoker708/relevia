@@ -1,99 +1,51 @@
 # Relevia
 
-Relevia is a web application designed to help individuals manage and overcome panic attacks. It provides resources, tools, and support to address emotions and cope effectively. This project is a small effort from EmpowerED Global to raise awareness about panic attacks.
+Relevia is my web application for exploring supportive dialogue alongside information about panic attacks, breathing exercises and grounding tools. I want privacy and accessibility to be part of the implementation, rather than promises attached to the interface. The application is also the testbed for [Relevia research](https://github.com/bushrakhandoker708/relevia-research), where I am investigating how prompting and, later, model adaptation affect dialogue quality, safety and browser performance.
 
-## Table of Contents
+The current application is a prototype. Its intended purpose does not establish that it reduces panic symptoms or provides clinically safe support. The recent implementation and documentation are agent-assisted and remain subject to my review.
 
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [Contact](#contact)
+## How the chat works
 
-## Features
+The React application uses WebLLM to run inference through WebGPU. The existing device-selection logic chooses between configured Llama 3.2 model tiers; curated replies provide a fallback when local inference is unavailable. This makes device capability an engineering constraint. The project still needs measurements on real devices before it can make reliable claims about download size, latency or memory use.
 
-- **Resource Library**: Comprehensive articles and guides on understanding panic attacks.
-- **Interactive Tools**: Breathing exercises, grounding techniques, and tracking logs.
-- **Animated UI**: Smooth, responsive animations powered by Framer Motion.
-- **Responsive Design**: Optimized for mobile and desktop devices.
-- **Tailwind CSS**: Custom styling for a modern, cohesive look.
+Running inference locally reduces the need to send dialogue to an inference provider, but it does not describe every network interaction. Model downloads, site analytics and optional browser speech services have separate data flows. A deterministic rule set checks messages before inference. The audit found missed risk cases and false alarms, so these rules must not be described as a validated safety system.
 
-## Installation
+## Why the storage design changed
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Bushraabir/relevia.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd relevia
-   ```
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
+The earlier chat used shared persistent history. That meant a new session could inherit another conversation, while expiry and crisis handling did not consistently prevent sensitive records from remaining on disk. Milestone 2 introduces a session-specific memory store in `src/services/chatStorage.js`, with `db.js` retaining a small compatibility interface for the chat service.
 
-## Usage
+Messages and names now remain in page memory by default. Saving requires an explicit choice in **Chat privacy and history**. A saved chat has a 24-hour retention period and must be deliberately reopened into a fresh session with saving switched off. The Home letter no longer reads chat history. This approach keeps the default simple without adding authentication or a cloud account system.
 
-Once the development server is running, open [http://localhost:5173](http://localhost:5173) in your browser. Explore the navigation menu to access different sections:
+That choice has limits. Saved chats have no application encryption or authentication, so anyone sharing the browser profile can open them. Names are not saved as separate metadata, but may still appear inside messages. Recognised crisis context disables saving for the session and removes its saved copy; missed detections can still leave sensitive text in an opted-in chat. Expired messages are excluded on access, while physical cleanup requires the application to run.
 
-- **What is it actually?**: Learn about panic attacks.
-- **Coping Techniques**: Interactive exercises and tools.
-- **Medication**: Information on medications.
-- **Contact**: Reach out for support or collaboration.
+The delete control clears chat records and chat personalisation, invalidates pending writes and attempts to remove the old shared IndexedDB database. Blocked deletion is reported. Journals and other coping-tool preferences use separate storage. Speech starts disabled. No differential-privacy mechanism is implemented.
 
-## The Relevia chatbot
+## Run locally
 
-The chat runs a small AI model **inside the visitor's browser** with WebGPU (via [WebLLM](https://github.com/mlc-ai/web-llm)). No server is involved, and conversations never leave the device.
-
-- **Model:** Llama-3.2-3B on stronger GPUs, Llama-3.2-1B on phones, low-memory devices and Intel integrated graphics. The choice is automatic; see `src/services/modelConfig.js` and `pickModel()` in `src/services/releviaBrain.js`.
-- **First visit:** a one-time download (about 0.9 GB or 2.3 GB), cached by the browser. Until it's ready, Relevia answers instantly with curated offline replies.
-- **No WebGPU** (older browsers, most of Firefox and Safari): offline replies only.
-- **Safety:** crisis messages are caught on-device before any AI runs (`src/services/safety.js`) and always get crisis-line information.
-- **Speed check:** in `npm run dev`, every reply logs `[Relevia] Speed: prefill … decoding … tokens/sec` in the browser console.
-- **Using a fine-tuned model:** train and export it with `relevia-research/notebooks/train_for_app.ipynb`, then paste the printed `CUSTOM_MODEL` into `src/services/modelConfig.js`.
-
-## Deploying
+From the application repository:
 
 ```bash
-npm run deploy
+npm ci
+npm run dev
 ```
 
-This builds with the `/relevia/` base path for GitHub Pages and publishes `dist/` to the `gh-pages` branch. Plain `npm run build` builds for the site root (`/`), for example Vercel.
+Open the local address printed by Vite. To run the synthetic tests or build the application:
 
-## Contributing
+```bash
+npm test
+npm run build
+```
 
-We welcome contributions! To contribute:
+`npm run lint` checks the whole application. The recorded Milestone 2 run still has 41 legacy errors and nine warnings, although the changed-file checks pass. Installing from a clean environment remains a separate verification step; the recorded build used the existing local installation.
 
-1. Fork the repository.
-2. Create a new branch:
-   ```bash
-   git checkout -b feature/your-feature
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m "Add feature"
-   ```
-4. Push to your branch:
-   ```bash
-   git push origin feature/your-feature
-   ```
-5. Open a pull request.
+## What has been verified
 
-Please follow the existing code style and include tests where applicable.
+The recorded run passed 18 JavaScript tests covering storage boundaries and inference failure behaviour. The production build and changed-file lint also passed. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
 
-## Contact
+The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 
-For support or collaboration, reach out via:
+## Development and publishing
 
-- **Website**: [EmpowerED Global](https://empoweredglobal.org)
-- **Email**: [redacted]
-- **WhatsApp**: [redacted]
-- **Facebook**: [EmpowerED Global](https://facebook.com/empoweredglobal)
+Keep the application and research histories separate. Changes should explain the problem, the selected correction and the checks that support it. Follow [the writing guide](docs/WRITING_VOICE_GUIDE.md), preserve failed checks and use synthetic dialogue in tests.
 
-> _This project is a small effort from EmpowerED Global to raise awareness about panic attacks._
-
+`npm run build:pages` builds for the `/relevia/` base path. `npm run deploy` publishes the built site to `gh-pages`; it is a publishing operation, not a local verification command. Review the outstanding browser and historical-data issues before a public release.

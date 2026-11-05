@@ -1,76 +1,9 @@
-/**
- * personalLetter.js – the Home page letter, written for the person reading it.
- *
- * I used to show everyone the exact same letter, every visit. Now it changes with:
- *   - their name, if they told the chat it (IndexedDB, same as the chatbot)
- *   - first visit vs coming back, and how long it's been
- *   - the time of day (a 2 a.m. visit needs a different letter than a morning one)
- *   - how their last chat felt (the chatbot's tone detection, last 24 hours only,
- *     because the chat history deletes itself after a day)
- *   - a different breathing exercise, grounding exercise and affirmation each visit
- *
- * PRIVACY: everything here is read from this browser only. Nothing is sent anywhere,
- * and there's no AI involved, so the letter shows up instantly.
- */
-
-import { DB } from './db.js';
-import { analyzeEmotionalTone } from './memoryUtils.js';
-
-const VISITS_KEY = 'relevia_visits';
-const SESSION_KEY = 'relevia_visit_counted';
-
-// ---------- visits ----------
-
-/**
- * Count this visit once per browser session (navigating between pages, or React
- * running effects twice in dev, shouldn't count as coming back).
- * Returns { count, daysAway, isFirst }.
- */
+/** The Home letter never reads chat history or persisted identity. */
 export function recordVisit() {
-  let data = { count: 0, last: 0 };
-  try {
-    data = JSON.parse(localStorage.getItem(VISITS_KEY)) || data;
-  } catch {
-    // private browsing or blocked storage - every visit just looks like a first one
-  }
-
-  let counted = false;
-  try {
-    counted = sessionStorage.getItem(SESSION_KEY) === '1';
-  } catch { /* same as above */ }
-
-  if (counted) {
-    // already counted this session, report what we stored then
-    return { count: data.count, daysAway: data.daysAway ?? 0, isFirst: data.count <= 1 };
-  }
-
-  const now = Date.now();
-  const daysAway = data.last ? Math.floor((now - data.last) / 86400000) : 0;
-  const next = { count: data.count + 1, last: now, daysAway };
-  try {
-    localStorage.setItem(VISITS_KEY, JSON.stringify(next));
-    sessionStorage.setItem(SESSION_KEY, '1');
-  } catch { /* fine, just not remembered */ }
-  return { count: next.count, daysAway, isFirst: next.count <= 1 };
+  return { count: 1, daysAway: 0, isFirst: true };
 }
-
-// ---------- what the chat knows ----------
-
-/** Their name and how their most recent chat felt, from this browser's chat history. */
 export async function getChatContext() {
-  try {
-    const db = await DB('anon');
-    const [name, hist] = await Promise.all([db.getName(), db.getHist(24)]);
-    const userMsgs = hist.filter((t) => t.role === 'user').map((t) => t.content);
-    const tones = userMsgs.map(analyzeEmotionalTone);
-    // a crisis anywhere in the last day matters more than whatever came after it
-    const feeling = tones.includes('crisis')
-      ? 'crisis'
-      : [...tones].reverse().find((t) => t !== 'neutral') || null;
-    return { name: name || '', feeling, chatted: userMsgs.length > 0 };
-  } catch {
-    return { name: '', feeling: null, chatted: false };
-  }
+  return { name: '', feeling: null, chatted: false };
 }
 
 // ---------- the words ----------
