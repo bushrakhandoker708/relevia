@@ -356,12 +356,18 @@ export async function think(text, uid = newSessionId(), onToken) {
 
   // Crisis check FIRST - before the length check, so a long message about
   // wanting to die never gets "could you summarize?" back
-  const crisisResponse = CrisisFilter(trimmedText);
+  let db = null;
+  let hist = [];
+  try {
+    db = await DB(uid);
+    hist = await db.getHist(MAX_TURNS * 2);
+  } catch { /* Risk routing still works on the current message without storage. */ }
+  const crisisResponse = CrisisFilter(trimmedText, hist);
   if (crisisResponse) {
 
     // Keep crisis context only in memory and disable saving for the session.
     try {
-      const db = await DB(uid);
+      db = db || await DB(uid);
       await db.addTurn(trimmedText, crisisResponse, { sensitive: true });
     } catch {
       console.warn('[Relevia] Storage operation unavailable');
@@ -373,8 +379,6 @@ export async function think(text, uid = newSessionId(), onToken) {
     return 'That\'s a lot to share! Could you summarize in fewer words? I want to really hear you.';
   }
 
-  let db = null;
-  let hist = [];
   let userName = '';
   const emotionalTone = analyzeEmotionalTone(trimmedText);
 
@@ -515,7 +519,7 @@ HOW TO REPLY:
 - Be honest: if they say something untrue or harmful about themselves, kindly disagree.
 - Never give medical advice or diagnoses; encourage professional help for serious issues.
 ${nameLine}
-- If they mention self-harm or wanting to die, take it seriously and point them to a crisis line (988 in the US) or emergency services.`
+- If they mention self-harm or wanting to die, take it seriously and point them to a locally verified crisis service or emergency services. Never invent contact details or assume the user's location.`
   };
 
   // SPEED: "always the last 12 messages" meant the start of the chat changed on every

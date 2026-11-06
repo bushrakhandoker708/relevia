@@ -1,5 +1,5 @@
 // Local storage is neither differential privacy nor authentication.
-import { CRISIS_RE } from './safety.js';
+import { isSensitiveChatText } from './safety.js';
 export const RETENTION_MS = 86400000;
 export const CHAT_PREFIX = 'relevia_chat_v2:';
 export const newSessionId = () => globalThis.crypto.randomUUID();
@@ -22,9 +22,9 @@ export function createChatStore({ storage = () => globalThis.localStorage, now =
   const decode = raw => {
     const value = JSON.parse(raw);
     if (value?.version !== 2 || !Array.isArray(value.rows)) return [];
-    if (value.rows.some(r => typeof r.content === 'string' && CRISIS_RE.test(r.content))) return [];
+    if (value.rows.some(r => typeof r.content === 'string' && isSensitiveChatText(r.content))) return [];
     return value.rows.filter(r => ['user', 'assistant'].includes(r.role) && typeof r.content === 'string'
-      && Number.isFinite(r.ts) && r.ts <= now() && r.ts > now() - RETENTION_MS && !CRISIS_RE.test(r.content));
+      && Number.isFinite(r.ts) && r.ts <= now() && r.ts > now() - RETENTION_MS && !isSensitiveChatText(r.content));
   };
   return {
     open(id) {
@@ -38,7 +38,7 @@ export function createChatStore({ storage = () => globalThis.localStorage, now =
         addTurn(user, bot, { sensitive = false } = {}) {
           if (!valid()) return;
           // Later replies may quote sensitive context: disable saving for this whole chat.
-          if (sensitive || CRISIS_RE.test(user) || CRISIS_RE.test(bot)) {
+          if (sensitive || isSensitiveChatText(user) || isSensitiveChatText(bot)) {
             const wasPersistent = s.persist;
             s.sensitive = true; s.persist = false;
             if (wasPersistent) {

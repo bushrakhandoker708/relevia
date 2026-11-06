@@ -7,6 +7,7 @@ import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from
 import { PREFETCH_AFTER_MS } from '../services/modelConfig';
 import { chatStore, newSessionId, deleteLegacyChat } from '../services/chatStorage.js';
 import ChatPrivacy from './ChatPrivacy.jsx';
+import { CrisisFilter, URGENT_SUPPORT } from '../services/safety.js';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -344,12 +345,15 @@ const ChatbotWidget = () => {
   };
 
   const handleSendMessage = async () => {
-    // Rate limit check
-    if (messageCount >= 12) {
+    if (!inputMessage.trim() || isTyping) return;
+    const safetyReply = CrisisFilter(inputMessage.trim(), messages
+      .filter(message => !message.isBot)
+      .map(message => ({ role: 'user', content: message.text })));
+    // The conversation limit must not prevent deterministic safety support.
+    if (messageCount >= 12 && !safetyReply) {
       const rateLimitMessage = {
         id: Date.now(),
-        // the input is locked after this, so the crisis lines HAVE to be in here
-        text: `${userName || 'friend'}, we've had a meaningful conversation. Consider taking a break and trying grounding techniques. If you need to talk to someone right now: US/Canada 988, UK 116 123, or findahelpline.com.`,
+        text: 'This session has reached its conversation limit. If you or someone else is in immediate danger, contact your local emergency service or someone nearby you trust. This chat cannot provide emergency care.',
         isBot: true,
         timestamp: new Date(),
         hasError: true,
@@ -414,7 +418,7 @@ const ChatbotWidget = () => {
       if (requestEpoch !== generationEpoch.current) return;
       setConnectionStatus('connected');
 
-      const isCrisisResponse = response.includes('988') || response.includes('116 123') || response.includes('findahelpline');
+      const isCrisisResponse = response === URGENT_SUPPORT || response === safetyReply;
 
       // Final message with complete response
       const botMessage = {
@@ -446,7 +450,7 @@ const ChatbotWidget = () => {
       
       const errorMessage = {
         id: Date.now() + 1,
-        text: "I'm experiencing a technical difficulty. If you're in crisis: US 988, UK 116 123. Your wellbeing matters.",
+        text: 'The chat encountered a technical problem. If you or someone else is in immediate danger, contact your local emergency service or someone nearby you trust now. Do not wait for this chat to recover.',
         isBot: true,
         timestamp: new Date(),
         hasError: true,
@@ -669,7 +673,7 @@ const ChatbotWidget = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-gray-600 text-center">
-                      Emotional support • Not therapy • In crisis? 988
+                      AI support • Not therapy or emergency care
                     </p>
                   )}
                 </Motion.div>
@@ -693,14 +697,14 @@ const ChatbotWidget = () => {
                       onKeyPress={handleKeyPress}
                       placeholder={userName ? `What's on your mind, ${userName}?` : "Share what's on your heart..."}
                       className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300 text-xs sm:text-sm placeholder-gray-500"
-                      disabled={isTyping || messageCount >= 12}
+                      disabled={isTyping}
                       maxLength={500}
                     />
                     <Motion.button
                       onClick={handleSendMessage}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      disabled={!inputMessage.trim() || isTyping || messageCount >= 12}
+                      disabled={!inputMessage.trim() || isTyping}
                       className="px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
                     >
                       <Send className="text-sm" />
@@ -723,7 +727,7 @@ const ChatbotWidget = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-xs text-purple-600 font-medium"
                       >
-                        {12 - messageCount} messages left
+                        {Math.max(0, 12 - messageCount)} ordinary messages left
                       </Motion.p>
                     )}
                   </div>

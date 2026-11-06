@@ -37,3 +37,17 @@ test('crisis handling precedes GPU access and never persists by default', async 
   assert.ok(reply.length > 0); assert.equal(chatStore.settings('crisis-test').sensitive, true);
   assert.equal(chatStore.settings('crisis-test').persistent, false);
 });
+test('new risk forms and user-history continuation bypass inference', async () => {
+  let gpuCalls = 0;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { gpu: { requestAdapter() { gpuCalls++; throw new Error('Must not run'); } } } });
+  const brain = await loadBrain();
+  for (const [id, text] of [['unicode','I don’t want to live'], ['typo','I want to kil myself'],
+    ['indirect','I have written my final goodbye and will not be here tomorrow.'], ['spanish','Quiero quitarme la vida']]) {
+    const reply = await brain.think(text, `improved-${id}`);
+    assert.match(reply, /cannot provide emergency care/);
+    assert.equal(chatStore.settings(`improved-${id}`).sensitive, true);
+  }
+  chatStore.open('context-route').addTurn('I want to hurt myself', 'Synthetic prior reply');
+  assert.match(await brain.think('I have a plan', 'context-route'), /cannot provide emergency care/);
+  assert.equal(gpuCalls, 0);
+});
