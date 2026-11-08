@@ -234,7 +234,6 @@ function Coping() {
     else playerRef.current?.pause();
   }, [calm.shouldPlay]);
 
-  const [activeTechnique, setActiveTechnique] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {

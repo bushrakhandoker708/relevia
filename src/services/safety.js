@@ -20,9 +20,63 @@ export const CRISIS_RE = new RegExp(
 );
 
 
+/*
+ * S2 normalisation. S1 (frozen in relevia-research/detectors/s1) matched clean
+ * sentences only: the perturbation probe showed "I wanna die", "dont", "my self",
+ * one typo, stretched letters, leetspeak or a single zero-width character could all
+ * slip past it. S2 keeps every S1 rule and instead rewrites the text into the form
+ * those rules expect. Each step below answers one observed failure type.
+ */
+export const DETECTOR_VERSION = 'S2';
+
+// Shorthand people actually type -> the spelling the rules are written for.
+const SHORTHAND = [
+  [/\bi'?m\b/g, 'i am'], [/\bi'?ve\b/g, 'i have'], [/\bi'?ll\b/g, 'i will'],
+  [/\bdon'?t\b/g, 'do not'], [/\bcan'?t\b/g, 'cannot'], [/\bwon'?t\b/g, 'will not'],
+  [/\bwanna\b/g, 'want to'], [/\bgonna\b/g, 'going to'], [/\bgotta\b/g, 'got to'],
+  [/\bu\b/g, 'you'], [/\bmy self\b/g, 'myself'], [/\b(kill|cutt|end|hurt)in\b/g, '$1ing'],
+];
+
+// Words the rules depend on. A token one small edit away from one of these is read
+// as that word, so a single slip ("myslef", "wnat") does not hide a risk message.
+const RISK_WORDS = ['myself', 'suicidal', 'suicide', 'overdose', 'overdosed', 'kill', 'killing',
+  'harm', 'hurt', 'alive', 'life', 'live', 'want', 'going', 'cannot', 'tonight'];
+const RISK_SET = new Set(RISK_WORDS);
+
+function oneEditAway(a, b) {
+  // Damerau distance exactly 1. Substitutions only count for long words: in short
+  // words a substitution too often turns an ordinary word into a risk word
+  // ("like" -> "live", "love" -> "live"), which would be a false alarm.
+  if (a === b) return false;
+  if (a.length === b.length) {
+    const diff = [...a].map((c, i) => (c !== b[i] ? i : -1)).filter(i => i >= 0);
+    if (diff.length === 2 && diff[1] === diff[0] + 1 && a[diff[0]] === b[diff[1]] && a[diff[1]] === b[diff[0]]) return true;
+    return diff.length === 1 && a.length >= 6;
+  }
+  const [s, l] = a.length < b.length ? [a, b] : [b, a];
+  if (l.length - s.length !== 1) return false;
+  for (let i = 0; i < l.length; i++) if (l.slice(0, i) + l.slice(i + 1) === s) return true;
+  return false;
+}
+
+function correctToken(token) {
+  if (token.length < 4 || RISK_SET.has(token)) return token;
+  return RISK_WORDS.find(w => oneEditAway(token, w)) || token;
+}
+
 export function normaliseRiskText(text) {
-  return String(text || '').normalize('NFKC').replace(/[\u2018\u2019]/g, "'")
-    .toLowerCase().replace(/\s+/g, ' ').trim();
+  let t = String(text || '').normalize('NFKC')
+    .replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '')       // invisible characters split words
+    .replace(/[\u2018\u2019\u02bc]/g, "'")
+    .toLowerCase();
+  // leetspeak, only inside words that also contain letters (keeps phone numbers intact)
+  t = t.replace(/[a-z0-9@$]+/g, w => (/[a-z]/.test(w) && /[0-9@$]/.test(w)
+    ? w.replace(/1/g, 'i').replace(/3/g, 'e').replace(/0/g, 'o').replace(/4|@/g, 'a').replace(/5|\$/g, 's')
+    : w));
+  t = t.replace(/([a-z])\1{2,}/g, '$1');                     // "dieee" -> "die", "reallyyy" -> "realy"
+  t = t.replace(/[a-z']+/g, correctToken);
+  for (const [re, out] of SHORTHAND) t = t.replace(re, out);
+  return t.replace(/\s+/g, ' ').trim();
 }
 
 const DIRECT = /\b(?:i (?:want|wanna|plan|intend|am going|might|may|will|need) to (?:die|(?:kill?|hurt|harm|cut) my ?self|end my life)|i(?:'m| am) (?:suicidal|going to (?:kill?|hurt|harm) my ?self)|(?:kill?|hurt|harm|cutting) my ?self|end(?:ing)? (?:it all|my life)|take my (?:own )?life|i (?:do not|don't) want to (?:live|be alive|be here)|no (?:point|reason) (?:in )?(?:living|to live)|better off (?:dead|without me))\b/;

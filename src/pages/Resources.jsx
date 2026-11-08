@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const containerVariants = {
@@ -21,23 +21,23 @@ function Resources() {
     <div className="min-h-screen bg-gradient-to-b from-primary-100 to-secondary-100 pt-20 pb-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-primary-100 via-secondary-100 to-accent-100 animate-gradientShift" style={{ backgroundSize: '200% 200%' }}></div>
       <div className="container mx-auto p-4 sm:p-6 md:p-8 relative z-10">
-        <motion.h1
+        <Motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
           className="text-4xl sm:text-5xl font-heading font-bold mb-8 text-neutral-800 text-center"
         >
           Resources
-        </motion.h1>
+        </Motion.h1>
 
-        <motion.div
+        <Motion.div
           variants={containerVariants}
           initial="hidden"
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16"
         >
-          <motion.div variants={itemVariants}>
-            <motion.div
+          <Motion.div variants={itemVariants}>
+            <Motion.div
               variants={cardVariants}
               whileHover="hover"
               whileTap={{ scale: 0.98 }}
@@ -53,10 +53,10 @@ function Resources() {
               >
                 Visit Site
               </a>
-            </motion.div>
-          </motion.div>
-          <motion.div variants={itemVariants}>
-            <motion.div
+            </Motion.div>
+          </Motion.div>
+          <Motion.div variants={itemVariants}>
+            <Motion.div
               variants={cardVariants}
               whileHover="hover"
               whileTap={{ scale: 0.98 }}
@@ -72,11 +72,11 @@ function Resources() {
               >
                 Visit Site
               </a>
-            </motion.div>
-          </motion.div>
-        </motion.div>
+            </Motion.div>
+          </Motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transitioning={{ duration: 1 }}
@@ -102,7 +102,7 @@ function Resources() {
             </ul>
           </div>
 
-          <motion.section
+          <Motion.section
             id="what-are-panic-attacks"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -117,9 +117,9 @@ function Resources() {
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
               Though panic attacks don’t cause lasting physical damage, their aftermath can be debilitating. The fear of another episode can disrupt daily life, sometimes even triggering more attacks. They differ from what some call “anxiety attacks,” which refer to overwhelming stress or anxiety with intense physical sensations that hinder functioning. Understanding this distinction is the first step to managing them, as it sheds light on why they feel so consuming.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="science-behind-panic-attacks"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -137,9 +137,9 @@ function Resources() {
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
               Typically, this intense reaction peaks within 10 minutes. Then, the prefrontal cortex steps in, activating the parasympathetic nervous system to release acetylcholine, which slows the heart rate and winds down the attack. Environmental cues tied to past trauma or anxiety disorders—like PTSD, OCD, or social anxiety—can spark this response, though the exact cause remains unclear.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="traditional-advice"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -149,14 +149,14 @@ function Resources() {
           >
             <h3 className="text-xl sm:text-2xl font-heading font-semibold text-primary-600 mb-4">Why Traditional Advice Might Not Work</h3>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              When a panic attack hits, the go-to advice is often to “calm down” or “take slow breaths.” But here’s the catch: this can make things worse. The more you try to control symptoms like a racing heart or shortness of breath, the more you signal to your brain that these sensations are dangerous. This fuels a vicious cycle—your anxiety spikes, your heart beats faster, and the panic intensifies.
+              People respond differently to self-help exercises. If an exercise increases discomfort, stop and consider other support.
             </p>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              For example, focusing on slowing your breathing might heighten your awareness of physical discomfort, amplifying the fear. Even attempts to “embrace” the panic in a zen-like way can backfire if you’re still treating the sensations as something to endure rather than accept. This paradox reveals why conventional wisdom often falls short for those grappling with panic disorder.
+              These activities are optional. They cannot determine whether symptoms are anxiety or a medical condition.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="new-approach"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -166,17 +166,17 @@ function Resources() {
           >
             <h3 className="text-xl sm:text-2xl font-heading font-semibold text-primary-600 mb-4">A New Approach: Accepting and Welcoming Panic</h3>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              What if the key to stopping a panic attack isn’t fighting it, but leaning into it? This unconventional strategy, inspired by Barry McDonagh’s book Dare, suggests welcoming the sensations instead of resisting them. Take Jon’s story: after 30 years of panic disorder triggered by travel, he found freedom by rethinking his approach.
+              Some therapies explore how people respond to feared sensations. This page does not provide an individual exposure-treatment plan.
             </p>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              On a flight from the UK to Austria, Jon felt the familiar rise of anxiety as the plane door closed. Instead of trying to calm down, he labeled his fearful thoughts—“What if I have a panic attack? This is catastrophic!”—as “panic story number two.” Then, he did something radical: he turned off his headphones, pumped his legs, and tapped his knees, daring the panic to get worse. To his surprise, it didn’t. The more he tried to amplify it, the more it faded, leaving him relaxed enough to watch Netflix.
+              Exposure exercises should be discussed with a qualified clinician, including whether they are appropriate for your circumstances.
             </p>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              This works because inviting panic breaks the fear cycle. By showing your brain that these sensations aren’t a threat, you prove they’re safe to experience. It’s a shift from enduring to confronting—a paper tiger that loses its power when you face it head-on.
+              Do not deliberately provoke symptoms based on this page. Support options can be discussed with a qualified professional.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="practical-steps"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -189,20 +189,20 @@ function Resources() {
               When panic strikes, having a toolkit can make all the difference. Here are practical steps, reimagined from various techniques, to navigate an attack:
             </p>
             <ul className="list-disc pl-6 text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              <li>Spot the Panic Stories: Recognize the lies your mind tells you—like “I’m having a heart attack” or “I’ll pass out”—and label them as stories, not truths.</li>
+              <li>Check your needs: this page cannot distinguish anxiety from a medical problem. Seek assessment for new or concerning symptoms.</li>
               <li>Let Go of the Fight: Stop battling the sensations. Allow your heart to race or your breathing to quicken without forcing them to change.</li>
-              <li>Invite the Sensations: Say, “Bring it on, panic!” Try to make your heart beat faster or your dizziness grow, proving these feelings can’t hurt you.</li>
+              <li>Do not deliberately intensify dizziness, breathlessness or chest symptoms. Discuss exposure exercises with a qualified clinician.</li>
               <li>Ground Yourself: Focus on your senses—name five things you see, four you can touch, three you hear, two you smell, and one you taste—to anchor yourself in the present.</li>
               <li>Engage Your Body: Hold an ice cube, splash cold water on your face, or suck on a sour candy to activate your calming parasympathetic response.</li>
-              <li>Use Positive Self-Talk: Remind yourself, “This is uncomfortable, but not dangerous. It’ll pass like a wave.”</li>
+              <li>Use bounded self-talk: “I can pause, consider what I need and ask for help.”</li>
               <li>Challenge the Fear: Avoid catastrophic thoughts like “Everything’s awful.” Acknowledge the difficulty without labeling it as hopeless.</li>
             </ul>
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
-              Moving around might ease symptoms slightly, a clue it’s anxiety, not a physical ailment. Walking can feel better than sitting still, reinforcing that you’re safe.
+              A change in symptoms when moving does not establish their cause. Do not use an exercise as a diagnostic test.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="long-term-strategies"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -227,9 +227,9 @@ function Resources() {
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
               Frequent attacks or constant worry about them might signal panic disorder, but these steps can reduce their grip over time.
             </p>
-          </motion.section>
+          </Motion.section>
 
-          <motion.section
+          <Motion.section
             id="conclusion"
             className="mb-8"
             initial={{ opacity: 0, y: 50 }}
@@ -241,14 +241,14 @@ function Resources() {
             <p className="text-neutral-600 font-body mb-4 text-sm sm:text-base">
               Panic attacks may feel like your body’s turned against you, but they’re a common human experience—one you can learn to handle. By understanding their mechanics and embracing rather than fearing them, you can break free from their cycle. Whether it’s your first attack or your hundredth, you’re not alone, and you’re stronger than you think. For extra support, explore therapy, online resources like the “Therapy in a Nutshell” panic attack playlist, or courses on processing emotions. Each step forward is a victory over panic’s hold on your life.
             </p>
-          </motion.section>
-        </motion.div>
+          </Motion.section>
+        </Motion.div>
 
         <div className="text-center mt-12 sm:mt-16">
           <h2 className="text-xl sm:text-2xl font-heading font-semibold text-neutral-800 mb-4">Need More Help?</h2>
           <p className="text-neutral-600 font-body mb-8 text-sm sm:text-base">Explore additional resources or reach out for support.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <motion.div
+            <Motion.div
               whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(14, 165, 233, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.3 }}
@@ -259,8 +259,8 @@ function Resources() {
               >
                 More Resources
               </Link>
-            </motion.div>
-            <motion.div
+            </Motion.div>
+            <Motion.div
               whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(16, 185, 129, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.3 }}
@@ -271,7 +271,7 @@ function Resources() {
               >
                 Contact Us
               </Link>
-            </motion.div>
+            </Motion.div>
           </div>
         </div>
       </div>

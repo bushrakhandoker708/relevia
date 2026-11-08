@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import React from 'react';
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import { motion as Motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import Lottie from 'lottie-react';
 import heartAnimation from '../assets/animation/heart.json';
@@ -15,11 +15,11 @@ const ScrollIndicator = ({ scrollY }) => {
   const opacity = useTransform(scrollY, [0, 400], [1, 0]);
   
   return (
-    <motion.div
+    <Motion.div
       className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30"
       style={{ opacity }}
     >
-      <motion.div
+      <Motion.div
         className="flex flex-col items-center text-neutral-600 bg-white/90 backdrop-blur-lg border border-neutral-200 rounded-full px-4 py-3 shadow-lg"
         animate={{ y: [0, 6, 0] }}
         transition={{ 
@@ -31,7 +31,7 @@ const ScrollIndicator = ({ scrollY }) => {
       >
         <span className="text-xs mb-2 font-medium">Scroll</span>
         <div className="w-6 h-10 border-2 border-primary-400/60 rounded-full relative bg-gradient-to-b from-white/5 to-transparent">
-          <motion.div
+          <Motion.div
             className="w-1.5 h-2 bg-primary-500 rounded-full absolute left-1/2 transform -translate-x-1/2 top-2"
             animate={{ y: [0, 12, 0] }}
             transition={{ 
@@ -42,8 +42,8 @@ const ScrollIndicator = ({ scrollY }) => {
             }}
           />
         </div>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 };
 
@@ -57,7 +57,6 @@ function Home() {
   }, [heart.shouldPlay]);
 
   const { scrollY } = useScroll();
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Optimized scroll transforms
@@ -85,10 +84,6 @@ function Home() {
     const { clientX, clientY } = e;
     const { innerWidth, innerHeight } = window;
     
-    setMousePosition({ 
-      x: (clientX - innerWidth / 2) / innerWidth,
-      y: (clientY - innerHeight / 2) / innerHeight 
-    });
     
     mouseX.set((clientX - innerWidth / 2) / 30);
     mouseY.set((clientY - innerHeight / 2) / 30);
@@ -218,13 +213,13 @@ function Home() {
         <ChatbotWidget />
 
         {/* Hero Section */}
-        <motion.main 
+        <Motion.main
           id="main"
           className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-20 pb-24"
           style={{ y: heroY, opacity: heroOpacity }}
         >
           {/* Heart animation */}
-          <motion.div
+          <Motion.div
             variants={heroVariants}
             initial="initial"
             animate="animate"
@@ -234,7 +229,7 @@ function Home() {
               y: springY
             }}
           >
-            <motion.div
+            <Motion.div
               animate={{ 
                 scale: [1, 1.05, 1], 
                 opacity: [0.9, 1, 0.9],
@@ -264,11 +259,11 @@ function Home() {
                 aria-label="Animated heart representing peace and wellness"
               />
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
 
           {/* Main heading - Fixed letter animations */}
-          <motion.header
+          <Motion.header
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 1.5, staggerChildren: 0.1 }}
@@ -276,9 +271,9 @@ function Home() {
           >
             <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-heading font-bold bg-gradient-to-br from-neutral-900 via-neutral-700 to-neutral-800 bg-clip-text text-transparent leading-tight">
               {["You're", "Safe", "Here"].map((word, wordIndex) => (
-                <motion.div key={wordIndex} className="inline-block mx-2 sm:mx-4">
+                <Motion.div key={wordIndex} className="inline-block mx-2 sm:mx-4">
                   {word.split('').map((letter, letterIndex) => (
-                    <motion.span
+                    <Motion.span
                       key={letterIndex}
                       variants={letterVariants}
                       className="inline-block hover:scale-110 hover:text-primary-600 transition-all duration-500 cursor-default"
@@ -289,21 +284,21 @@ function Home() {
                       }}
                     >
                       {letter}
-                    </motion.span>
+                    </Motion.span>
                   ))}
-                </motion.div>
+                </Motion.div>
               ))}
             </h1>
-          </motion.header>
+          </Motion.header>
 
           {/* Subtitle */}
-          <motion.div 
+          <Motion.div
             initial={{ opacity: 0, y: 30 }} 
             animate={{ opacity: 1, y: 0 }} 
             transition={{ delay: 2, duration: 1.8 }} 
             className="max-w-5xl mx-auto text-center mb-24"
           >
-            <motion.p 
+            <Motion.p
               className="text-lg sm:text-xl md:text-2xl text-neutral-600 leading-relaxed font-body mb-8"
               animate={{ 
                 opacity: [0.8, 1, 0.8]
@@ -316,16 +311,16 @@ function Home() {
               }}
             >
               Take a moment. Breathe deeply. You've found your sanctuary.
-            </motion.p>
+            </Motion.p>
             
             {/* Fixed divider */}
-            <motion.div
+            <Motion.div
               className="flex items-center justify-center space-x-4"
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 2.5, duration: 1.5 }}
             >
-              <motion.div
+              <Motion.div
                 className="h-0.5 bg-gradient-to-r from-transparent via-primary-400 to-transparent flex-1 max-w-24"
                 animate={{ scaleX: [0, 1, 0] }}
                 transition={{ 
@@ -338,7 +333,7 @@ function Home() {
               
               <div className="w-2 h-2 bg-gradient-radial from-primary-500 to-secondary-500 rounded-full" />
               
-              <motion.div
+              <Motion.div
                 className="h-0.5 bg-gradient-to-r from-transparent via-secondary-400 to-transparent flex-1 max-w-24"
                 animate={{ scaleX: [0, 1, 0] }}
                 transition={{ 
@@ -349,11 +344,11 @@ function Home() {
                   type: "tween"
                 }}
               />
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
 
           {/* Letter section with glass morphism */}
-          <motion.article
+          <Motion.article
             initial={{ opacity: 0, scale: 0.95, y: 40 }}
             whileInView={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 2, ease: [0.22, 1, 0.36, 1] }}
@@ -362,7 +357,7 @@ function Home() {
           >
             {/* Letter content */}
             <div className="relative z-10 space-y-8">
-              <motion.h2
+              <Motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1.5 }}
@@ -370,7 +365,7 @@ function Home() {
                 viewport={{ once: true }}
               >
                 {letterContent.greeting}
-              </motion.h2>
+              </Motion.h2>
 
               {[
                 letterContent.opening,
@@ -379,7 +374,7 @@ function Home() {
                 letterContent.encouragement,
                 letterContent.closing
               ].map((paragraph, index) => (
-                <motion.p
+                <Motion.p
                   key={index}
                   initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
                   whileInView={{ opacity: 1, x: 0 }}
@@ -396,11 +391,11 @@ function Home() {
                   viewport={{ once: true }}
                 >
                   {paragraph}
-                </motion.p>
+                </Motion.p>
               ))}
 
               {/* Affirmation section */}
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 1, duration: 2 }}
@@ -408,7 +403,7 @@ function Home() {
                 whileHover={{ scale: 1.01 }}
                 viewport={{ once: true }}
               >
-                <motion.p 
+                <Motion.p
                   className="text-center text-primary-800 font-semibold text-xl sm:text-2xl font-heading"
                   animate={{ 
                     opacity: [0.9, 1, 0.9]
@@ -421,11 +416,11 @@ function Home() {
                   }}
                 >
                   {letterContent.affirmation}
-                </motion.p>
-              </motion.div>
+                </Motion.p>
+              </Motion.div>
 
               {/* Signature */}
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.5, duration: 1.5 }}
@@ -438,19 +433,19 @@ function Home() {
                 <p className="font-heading text-xl text-accent-700 font-semibold">
                   Team Relevia 💚
                 </p>
-              </motion.div>
+              </Motion.div>
             </div>
-          </motion.article>
+          </Motion.article>
 
           {/* Call-to-action section */}
-          <motion.section 
+          <Motion.section
             initial={{ opacity: 0, y: 40 }} 
             whileInView={{ opacity: 1, y: 0 }} 
             transition={{ duration: 2 }} 
             className="text-center mb-24"
             viewport={{ once: true }}
           >
-            <motion.h2 
+            <Motion.h2
               className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-neutral-700 mb-16 font-heading font-medium"
               animate={{ 
                 opacity: [0.9, 1, 0.9]
@@ -463,7 +458,7 @@ function Home() {
               }}
             >
               Begin Your Journey to Inner Peace
-            </motion.h2>
+            </Motion.h2>
             
             <div className="flex flex-col sm:flex-row justify-center gap-6">
               {[
@@ -482,7 +477,7 @@ function Home() {
                   gradient: 'from-white via-neutral-50 to-white'
                 }
               ].map((btn, i) => (
-                <motion.div 
+                <Motion.div
                   key={i} 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -510,14 +505,14 @@ function Home() {
                     
                     <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-full ${btn.primary ? 'bg-white/10' : 'bg-primary-100/40'}`} />
                   </Link>
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
-          </motion.section>
-        </motion.main>
+          </Motion.section>
+        </Motion.main>
 
         {/* Feature cards section */}
-        <motion.section 
+        <Motion.section
           ref={ref} 
           className="relative z-10 py-24 px-4 sm:px-6"
           initial={{ opacity: 0 }}
@@ -526,7 +521,7 @@ function Home() {
           viewport={{ once: true }}
         >
           <div className="max-w-7xl mx-auto">
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.5 }}
@@ -539,11 +534,11 @@ function Home() {
               <p className="text-lg sm:text-xl text-neutral-600 max-w-3xl mx-auto leading-relaxed font-body">
                 Discover thoughtfully curated resources designed to support your mental health journey with compassion and expertise.
               </p>
-            </motion.div>
+            </Motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
               {featureCards.map((item, i) => (
-                <motion.div
+                <Motion.div
                   key={i}
                   variants={cardVariants}
                   initial="initial"
@@ -560,7 +555,7 @@ function Home() {
                   
                   <Link to={item.to} className="relative z-10 block h-full" aria-label={`Learn more about ${item.title}`}>
                     {/* Fixed icon animation - removed problematic rotate array */}
-                    <motion.div 
+                    <Motion.div
                       className="text-5xl sm:text-6xl mb-6 group-hover:scale-110 transition-all duration-500 text-center"
                       whileHover={{ 
                         scale: 1.15,
@@ -570,7 +565,7 @@ function Home() {
                       aria-label={`${item.title} icon`}
                     >
                       {item.icon}
-                    </motion.div>
+                    </Motion.div>
                     
                     <h3 className="text-2xl sm:text-3xl text-neutral-800 mb-6 group-hover:text-neutral-900 transition-colors leading-tight font-heading font-bold text-center">
                       {item.title}
@@ -581,14 +576,14 @@ function Home() {
                     </p>
                     
                     {/* Fixed CTA animation */}
-                    <motion.div
+                    <Motion.div
                       className={`flex items-center justify-center text-${item.glowColor} group-hover:text-${item.glowColor}/80 transition-all duration-500 pt-4 border-t border-neutral-200/50`}
                       initial={{ x: 0 }}
                       whileHover={{ x: 4 }}
                       transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     >
                       <span className="text-sm font-bold mr-2 font-body">Explore More</span>
-                      <motion.svg 
+                      <Motion.svg
                         className="w-5 h-5" 
                         fill="none" 
                         stroke="currentColor" 
@@ -602,26 +597,26 @@ function Home() {
                         }}
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </motion.svg>
-                    </motion.div>
+                      </Motion.svg>
+                    </Motion.div>
                   </Link>
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
           </div>
-        </motion.section>
+        </Motion.section>
 
         {/* Scroll indicator */}
         <ScrollIndicator scrollY={scrollY} />
 
         {/* Fixed help button */}
-        <motion.div
+        <Motion.div
           className="fixed bottom-6 right-6 z-50"
           initial={{ opacity: 0, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 4, duration: 1.2 }}
         >
-          <motion.button
+          <Motion.button
             className="w-14 h-14 bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 hover:from-accent-600 hover:via-accent-700 hover:to-accent-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-500 backdrop-blur-lg border-2 border-white/20 flex items-center justify-center group relative overflow-hidden"
             whileHover={{ 
               scale: 1.1, 
@@ -633,7 +628,7 @@ function Home() {
           >
             <span className="text-xl font-bold font-heading relative z-10">?</span>
             
-            <motion.div 
+            <Motion.div
               className="absolute inset-0 border-2 border-white/30 rounded-full"
               animate={{ scale: [1, 1.3], opacity: [0.6, 0] }}
               transition={{ 
@@ -643,8 +638,8 @@ function Home() {
                 type: "tween"
               }}
             />
-          </motion.button>
-        </motion.div>
+          </Motion.button>
+        </Motion.div>
 
         {/* Accessibility improvements */}
         <div aria-live="polite" aria-atomic="true" className="sr-only">

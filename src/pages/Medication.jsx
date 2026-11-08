@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 function Medication() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,34 +40,34 @@ function Medication() {
     <div className="min-h-screen bg-gradient-to-b from-primary-100 to-secondary-100 pt-20 pb-8 font-body">
       <div className="container mx-auto p-4 md:p-8">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-          <motion.h1
+          <Motion.h1
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.5 }}
             className="text-3xl md:text-4xl font-heading text-primary-900 mb-4 md:mb-0"
           >
             Medication for Panic Attacks
-          </motion.h1>
-          <motion.button
+          </Motion.h1>
+          <Motion.button
             onClick={() => document.getElementById('emergency-support').scrollIntoView({ behavior: 'smooth' })}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="bg-accent-500 text-white px-4 py-2 rounded-lg shadow-soft hover:bg-accent-600 transition duration-300"
           >
             Need Immediate Help?
-          </motion.button>
+          </Motion.button>
         </div>
 
-        <motion.p
+        <Motion.p
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-lg text-neutral-700 mb-8 max-w-2xl mx-auto md:mx-0"
         >
           If you're experiencing panic attacks, know that you're not alone. Medications can play a crucial role in reducing the frequency and intensity of your symptoms, helping you regain control and improve your quality of life. Always work with a healthcare professional to find the treatment plan that’s right for you.
-        </motion.p>
+        </Motion.p>
 
-        <motion.div
+        <Motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -112,7 +112,7 @@ function Medication() {
                       notes: 'Less common; more side effects',
                     },
                   ].map((med, index) => (
-                    <motion.tr
+                    <Motion.tr
                       key={index}
                       custom={index}
                       initial="hidden"
@@ -125,14 +125,14 @@ function Medication() {
                       <td className="p-3">{med.examples}</td>
                       <td className="p-3">{med.fda}</td>
                       <td className="p-3">{med.notes}</td>
-                    </motion.tr>
+                    </Motion.tr>
                   ))}
                 </tbody>
             </table>
           </div>
-        </motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -143,9 +143,9 @@ function Medication() {
           <p className="text-neutral-700 max-w-3xl mx-auto md:mx-0">
             Medications balance brain chemicals to help manage panic attacks. SSRIs and SNRIs boost serotonin and norepinephrine levels to stabilize mood and reduce anxiety over time. Benzodiazepines enhance GABA, a calming neurotransmitter, providing immediate relief during acute episodes.
           </p>
-        </motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -160,7 +160,7 @@ function Medication() {
               '<strong>Therapy Boost:</strong> Combining medication with therapy, like CBT, often improves outcomes.',
               '<strong>Follow Medical Advice:</strong> Never start or stop medication without consulting your healthcare provider.',
             ].map((item, index) => (
-              <motion.li
+              <Motion.li
                 key={index}
                 custom={index}
                 initial="hidden"
@@ -171,9 +171,9 @@ function Medication() {
               />
             ))}
           </ul>
-        </motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           id="emergency-support"
           initial="hidden"
           whileInView="visible"
@@ -209,26 +209,26 @@ function Medication() {
               </a>
             </li>
           </ul>
-        </motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
           variants={sectionVariants}
           className="mt-8"
         >
-          <motion.button
+          <Motion.button
             onClick={() => setIsModalOpen(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="bg-primary-500 text-white px-6 py-2 rounded-lg shadow-soft hover:bg-primary-600 transition duration-300"
           >
             Learn More About Medication
-          </motion.button>
-        </motion.div>
+          </Motion.button>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -243,7 +243,7 @@ function Medication() {
               { name: 'AAFP', url: 'https://www.aafp.org/pubs/afp/afp-community-blog/entry/what-are-the-best-medications-for-panic-disorder.html' },
               { name: 'WebMD', url: 'https://www.webmd.com/anxiety-panic/understanding-panic-attack-treatment' },
             ].map((resource, index) => (
-              <motion.a
+              <Motion.a
                 key={index}
                 href={resource.url}
                 target="_blank"
@@ -253,12 +253,12 @@ function Medication() {
                 className="bg-accent-500 text-white px-4 py-2 rounded-lg shadow-soft hover:bg-accent-600 transition duration-300 text-center"
               >
                 {resource.name}
-              </motion.a>
+              </Motion.a>
             ))}
           </div>
-        </motion.div>
+        </Motion.div>
 
-        <motion.div
+        <Motion.div
           animate={{
             boxShadow: [
               '0 0 10px rgba(0,0,0,0.1)',
@@ -273,11 +273,11 @@ function Medication() {
           <blockquote className="text-neutral-700 italic">
             "Medications can be valuable in managing panic attacks when combined with therapy." - Dr. Jane Smith, Psychiatrist
           </blockquote>
-        </motion.div>
+        </Motion.div>
       </div>
 
       {showBackToTop && (
-        <motion.button
+        <Motion.button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -287,12 +287,12 @@ function Medication() {
           className="fixed bottom-4 right-4 bg-primary-500 text-white p-3 rounded-full shadow-soft hover:bg-primary-600 transition duration-300"
         >
           ↑
-        </motion.button>
+        </Motion.button>
       )}
 
       <AnimatePresence>
         {isModalOpen && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
@@ -300,7 +300,7 @@ function Medication() {
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             onClick={() => setIsModalOpen(false)}
           >
-            <motion.div
+            <Motion.div
               className="bg-white p-4 md:p-8 rounded-lg shadow-xl max-w-lg max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
@@ -346,16 +346,16 @@ function Medication() {
                 For immediate help, call the <strong>SAMHSA National Helpline</strong> at <strong>1-800-662-4357</strong> or seek emergency care if you’re in crisis.
               </p>
 
-              <motion.button
+              <Motion.button
                 onClick={() => setIsModalOpen(false)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="mt-6 bg-primary-500 text-white px-6 py-2 rounded-lg shadow-soft hover:bg-primary-600 transition duration-300"
               >
                 Close
-              </motion.button>
-            </motion.div>
-          </motion.div>
+              </Motion.button>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>

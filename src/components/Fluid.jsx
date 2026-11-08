@@ -1,6 +1,6 @@
-import { useSpring, animated } from '@react-spring/web';
+import { useSpring, animated as Animated } from '@react-spring/web';
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 function Fluid() {
   const [fastSpring, setFastSpring] = useSpring(() => ({
@@ -33,7 +33,7 @@ function Fluid() {
 
   return (
     <div className="absolute inset-0 z-0 overflow-hidden">
-      <animated.div
+      <Animated.div
         style={{
           transform: springProps.xy.to(trans),
           background: 'linear-gradient(135deg, #E0F2FE, #BAE6FD, #7DD3FC)',
@@ -41,13 +41,13 @@ function Fluid() {
         }}
         className="absolute inset-0"
       />
-      <motion.div
+      <Motion.div
         className="absolute inset-0"
         animate={{ rotate: 360 }}
         transition={{ duration: 120, repeat: Infinity, ease: 'linear' }}
         style={{ background: 'conic-gradient(from 0deg, #E0F2FE, #BAE6FD, #7DD3FC, #D1FAE5, #A7F3D0, #6EE7B7, #E0F2FE)' }}
       />
-      <animated.div
+      <Animated.div
         className="absolute inset-0"
         style={{
           background: slowSpring.xy.to(
@@ -59,7 +59,7 @@ function Fluid() {
           opacity: 0.6,
         }}
       />
-      <animated.div
+      <Animated.div
         className="absolute inset-0"
         style={{
           background: fastSpring.xy.to(

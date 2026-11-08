@@ -179,7 +179,7 @@ class ErrorBoundary extends React.Component {
               <Heart className="w-5 h-5 text-primary-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
                 <p className="text-primary-800 font-body text-sm leading-relaxed">
-                  <strong>You're safe and supported.</strong> Technical issues like this don't affect your progress or data. 
+                  <strong>The page encountered a problem.</strong> Unsaved changes may have been lost.
                   Take a deep breath - we'll get this sorted out quickly.
                 </p>
               </div>
@@ -218,7 +218,7 @@ class ErrorBoundary extends React.Component {
               <p className="mb-2">If you're experiencing a mental health crisis:</p>
               <div className="flex items-center">
                 <Phone className="w-4 h-4 mr-2" />
-                <span>Crisis Hotline: <a href="tel:988" className="font-semibold hover:underline">988</a></span>
+                <span>If there is immediate danger, contact your local emergency service.</span>
               </div>
             </div>
           </div>

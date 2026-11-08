@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { ArrowPathIcon, HeartIcon, CloudIcon, StarIcon } from '@heroicons/react/24/solid';
 
 const BreathingExercise = () => {
@@ -19,25 +19,25 @@ const BreathingExercise = () => {
 
   return (
     <div className="flex flex-col items-center mb-12">
-      <motion.div
+      <Motion.div
         className="w-24 h-24 bg-blue-300 rounded-full"
         variants={circleVariants}
         animate={isInhaling ? 'inhale' : 'exhale'}
         transition={{ duration: 4, ease: 'easeInOut' }}
       />
       <div className="mt-4 text-lg font-medium text-primary-800">
-        <motion.span
+        <Motion.span
           animate={{ opacity: isInhaling ? 1 : 0 }}
           transition={{ duration: 0.1 }}
         >
           Inhale
-        </motion.span>
-        <motion.span
+        </Motion.span>
+        <Motion.span
           animate={{ opacity: isInhaling ? 0 : 1 }}
           transition={{ duration: 0.1 }}
         >
           Exhale
-        </motion.span>
+        </Motion.span>
       </div>
       <p className="mt-2 text-sm text-neutral-600">Follow the circle to guide your breathing.</p>
     </div>
@@ -90,18 +90,18 @@ export default function Activity() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-green-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-lg shadow-soft py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-        <motion.h1
+        <Motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="text-4xl font-heading text-primary-900 mb-8 text-center"
         >
           Physical Activity and Panic Attacks
-        </motion.h1>
+        </Motion.h1>
 
         <BreathingExercise />
 
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -111,9 +111,9 @@ export default function Activity() {
           <p className="text-neutral-700">
             Physical activity is a powerful tool for managing panic attacks. It can help distract you from anxious thoughts, release mood-boosting endorphins, regulate your breathing, and build confidence over time. Engaging in physical activity can trigger the release of endorphins, which are natural mood lifters, and help regulate the body's stress response.
           </p>
-        </motion.section>
+        </Motion.section>
 
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -122,7 +122,7 @@ export default function Activity() {
           <h2 className="text-2xl font-heading text-primary-800 mb-4">Benefits</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {benefits.map((benefit, index) => (
-              <motion.div
+              <Motion.div
                 key={index}
                 className="bg-white rounded-lg shadow-soft p-6"
                 whileHover={{ scale: 1.05 }}
@@ -140,12 +140,12 @@ export default function Activity() {
                   <h3 className="text-xl font-heading text-primary-800 ml-4">{benefit.title}</h3>
                 </div>
                 <p className="text-neutral-700">{benefit.description}</p>
-              </motion.div>
+              </Motion.div>
             ))}
           </div>
-        </motion.section>
+        </Motion.section>
 
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.6 }}
@@ -154,19 +154,19 @@ export default function Activity() {
           <h2 className="text-2xl font-heading text-primary-800 mb-4">Suggested Activities</h2>
           <ul className="list-disc list-inside text-neutral-700">
             {activities.map((activity, index) => (
-              <motion.li
+              <Motion.li
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
                 {activity}
-              </motion.li>
+              </Motion.li>
             ))}
           </ul>
-        </motion.section>
+        </Motion.section>
 
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.8 }}
@@ -174,17 +174,17 @@ export default function Activity() {
           <h2 className="text-2xl font-heading text-primary-800 mb-4">Tips</h2>
           <ul className="list-disc list-inside text-neutral-700">
             {tips.map((tip, index) => (
-              <motion.li
+              <Motion.li
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
                 {tip}
-              </motion.li>
+              </Motion.li>
             ))}
           </ul>
-        </motion.section>
+        </Motion.section>
       </div>
     </div>
   );

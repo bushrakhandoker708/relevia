@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion as Motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGlobe, faEnvelope, faPhone, faLink } from '@fortawesome/free-solid-svg-icons';
 import abirImg from '../assets/images/abir.jpg';
@@ -39,7 +39,7 @@ const FloatingBackground = () => {
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {blobs.map((b, i) => {
         return (
-          <motion.div
+          <Motion.div
             key={i}
             className="absolute bg-primary-100/30 rounded-full blur-lg"
             style={{
@@ -75,7 +75,7 @@ const StoryCard = ({ name, image, story }) => {
   };
 
   return (
-    <motion.div
+    <Motion.div
       className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md border border-neutral-200"
       initial="hidden"
       animate="visible"
@@ -84,7 +84,7 @@ const StoryCard = ({ name, image, story }) => {
       whileHover={{ y: -5 }}
     >
       <div className="flex items-center space-x-4">
-        <motion.img
+        <Motion.img
           src={image}
           alt={name}
           className="w-16 h-16 rounded-full object-cover shadow-md"
@@ -93,7 +93,7 @@ const StoryCard = ({ name, image, story }) => {
         />
         <h3 className="text-2xl font-handwritten text-primary-600">{name}</h3>
       </div>
-      <motion.button
+      <Motion.button
         className="mt-4 text-primary-500 font-body hover:text-primary-700"
         onClick={() => setIsExpanded(!isExpanded)}
         whileHover={{ scale: 1.05 }}
@@ -101,10 +101,10 @@ const StoryCard = ({ name, image, story }) => {
         transition={{ type: 'spring', stiffness: 200 }}
       >
         {isExpanded ? 'Hide story' : 'Read story'}
-      </motion.button>
+      </Motion.button>
       <AnimatePresence>
         {isExpanded && (
-          <motion.p
+          <Motion.p
             className="mt-4 text-neutral-700 leading-relaxed"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -112,15 +112,15 @@ const StoryCard = ({ name, image, story }) => {
             transition={{ duration: 0.5, ease: 'easeInOut' }}
           >
             {story}
-          </motion.p>
+          </Motion.p>
         )}
       </AnimatePresence>
-    </motion.div>
+    </Motion.div>
   );
 };
 
 const ContactItem = ({ icon, text, link }) => (
-  <motion.a
+  <Motion.a
     href={link}
     target="_blank"
     rel="noopener noreferrer"
@@ -131,7 +131,7 @@ const ContactItem = ({ icon, text, link }) => (
   >
     <FontAwesomeIcon icon={icon} className="h-6 w-6 text-primary-500" />
     <span className="text-primary-600 font-medium text-lg">{text}</span>
-  </motion.a>
+  </Motion.a>
 );
 
 function Contact() {
@@ -199,7 +199,7 @@ function Contact() {
   ];
 
   return (
-    <motion.section
+    <Motion.section
       className="min-h-screen bg-gradient-to-br from-neutral-100 to-neutral-50 pt-20 pb-8 overflow-hidden relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -207,17 +207,17 @@ function Contact() {
     >
       <FloatingBackground />
       <div className="container mx-auto p-6 max-w-4xl relative z-10">
-        <motion.h1
+        <Motion.h1
           className="text-5xl md:text-6xl font-handwritten text-primary-700 text-center mb-8"
           initial={{ opacity: 0, scale: 0.8, y: -50 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 1, ease: 'easeInOut', type: 'spring', stiffness: 100 }}
         >
           Contact
-        </motion.h1>
+        </Motion.h1>
         <div className="mb-12">
           {introParagraphs.map((paragraph, index) => (
-            <motion.p
+            <Motion.p
               key={index}
               className="text-lg md:text-xl font-body text-neutral-700 leading-relaxed text-center max-w-2xl mx-auto mb-6"
               initial={{ opacity: 0, y: 50 }}
@@ -225,52 +225,52 @@ function Contact() {
               transition={{ delay: 0.3 + index * 0.5, duration: 1, ease: 'easeInOut' }}
             >
               {paragraph}
-            </motion.p>
+            </Motion.p>
           ))}
-          <motion.div
+          <Motion.div
             className="flex justify-center mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.8, duration: 1 }}
           >
-            <motion.span
+            <Motion.span
               className="text-primary-500 text-sm font-body animate-pulse"
               animate={{ y: [0, 10, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >
               Scroll to explore
-            </motion.span>
-          </motion.div>
+            </Motion.span>
+          </Motion.div>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-1 space-y-6">
-            <motion.h2
+            <Motion.h2
               className="text-3xl font-heading text-primary-600 mb-6"
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 1, ease: 'easeInOut' }}
             >
               Why We Built Relivia
-            </motion.h2>
+            </Motion.h2>
             {stories.map((story, index) => (
               <StoryCard key={index} name={story.name} image={story.image} story={story.story} />
             ))}
           </div>
-          <motion.div
+          <Motion.div
             className="hidden md:block w-px bg-neutral-200"
             initial={{ height: 0 }}
             animate={{ height: '100%' }}
             transition={{ duration: 1.5, delay: 0.8, ease: 'easeInOut' }}
           />
           <div className="flex-1">
-            <motion.h2
+            <Motion.h2
               className="text-3xl font-heading text-primary-600 mb-6"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 1, ease: 'easeInOut' }}
             >
               Get in Touch
-            </motion.h2>
+            </Motion.h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {contactItems.map((item, index) => (
                 <ContactItem key={index} icon={item.icon} text={item.text} link={item.link} />
@@ -278,16 +278,16 @@ function Contact() {
             </div>
           </div>
         </div>
-        <motion.div
+        <Motion.div
           className="text-center text-neutral-600 mt-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 1, ease: 'easeInOut' }}
         >
           We typically respond within 24 hours
-        </motion.div>
+        </Motion.div>
       </div>
-    </motion.section>
+    </Motion.section>
   );
 }
 

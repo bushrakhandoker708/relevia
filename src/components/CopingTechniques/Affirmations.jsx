@@ -16,11 +16,11 @@ import {
 
 const affirmationCategories = {
   panic: [
-    "I am safe right now. This feeling will pass, and I will emerge stronger and more peaceful than before.",
+    "I can notice what I need right now and ask for support.",
     "My breath is my anchor. With each inhale, I welcome calm. With each exhale, I release fear.",
     "I have survived every difficult moment in my life so far, and I will survive this one too with grace.",
     "This is temporary. My body knows how to return to balance, and peace is flowing back to me now.",
-    "I am grounded in this moment. My feet are on solid ground, and I am completely safe.",
+    "I am grounded in this moment. My feet are on solid ground, and I can check my surroundings and seek support.",
     "I choose to release control and trust that everything is working out perfectly for my highest good.",
     "My nervous system is calming down with each breath I take. I am returning to peace naturally.",
     "I acknowledge this feeling without judgment and allow it to pass through me like a wave.",
@@ -71,7 +71,7 @@ const affirmationCategories = {
   ],
   grounding: [
     "I feel my feet firmly planted on the earth beneath me. I am stable and secure.",
-    "I am present in this moment, fully aware of my surroundings and completely safe.",
+    "I am present in this moment, fully aware of my surroundings and able to pause.",
     "My connection to the earth fills me with strength, stability, and unshakeable peace.",
     "I breathe in calm and breathe out tension, anchoring myself in the here and now.",
     "I am like a mighty tree - rooted, stable, and able to weather any storm with grace.",
@@ -109,11 +109,9 @@ const affirmationCategories = {
 const AdvancedAffirmations = () => {
   const [currentCategory, setCurrentCategory] = useState('anxiety');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [direction, setDirection] = useState('next');
   const [speechSupported, setSpeechSupported] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(0.7);
   const [fontSize, setFontSize] = useState('text-xl');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -125,7 +123,6 @@ const AdvancedAffirmations = () => {
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 });
   
-  const autoPlayIntervalRef = useRef(null);
   const startTimeRef = useRef(null);
   const utteranceRef = useRef(null);
 
@@ -167,24 +164,12 @@ const AdvancedAffirmations = () => {
     }
   }, []);
 
-  // Auto-advance functionality
-  useEffect(() => {
-    if (isAutoAdvancing && !isSpeaking) {
-      const timer = setTimeout(() => {
-        handleNext();
-      }, 8000); // 8 seconds per affirmation
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isAutoAdvancing, currentIndex, isSpeaking]);
-
   // Navigation handlers
   const handleNext = useCallback(() => {
     if (utteranceRef.current) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
-    setDirection('next');
     setCurrentIndex((prev) => {
       const newIndex = (prev + 1) % currentAffirmations.length;
       setSessionProgress((newIndex / currentAffirmations.length) * 100);
@@ -197,13 +182,23 @@ const AdvancedAffirmations = () => {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
-    setDirection('prev');
     setCurrentIndex((prev) => {
       const newIndex = (prev - 1 + currentAffirmations.length) % currentAffirmations.length;
       setSessionProgress((newIndex / currentAffirmations.length) * 100);
       return newIndex;
     });
   }, [currentAffirmations.length]);
+
+  // Auto-advance functionality
+  useEffect(() => {
+    if (isAutoAdvancing && !isSpeaking) {
+      const timer = setTimeout(() => {
+        handleNext();
+      }, 8000); // 8 seconds per affirmation
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAutoAdvancing, currentIndex, isSpeaking, handleNext]);
 
   // Touch handlers for swipe gestures
   const handleTouchStart = (e) => {
@@ -235,7 +230,7 @@ const AdvancedAffirmations = () => {
   };
 
   // Speech functionality
-  const speakAffirmation = () => {
+  const speakAffirmation = useCallback(() => {
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -259,17 +254,17 @@ const AdvancedAffirmations = () => {
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  };
+  }, [isSpeaking, currentAffirmations, currentIndex, playbackSpeed, selectedVoice]);
 
   // Favorites functionality
-  const toggleFavorite = () => {
+  const toggleFavorite = useCallback(() => {
     const currentAffirmation = `${currentCategory}-${currentIndex}`;
     setFavoriteAffirmations(prev => 
       prev.includes(currentAffirmation)
         ? prev.filter(fav => fav !== currentAffirmation)
         : [...prev, currentAffirmation]
     );
-  };
+  }, [currentCategory, currentIndex]);
 
   const isFavorite = favoriteAffirmations.includes(`${currentCategory}-${currentIndex}`);
 
@@ -296,26 +291,7 @@ const AdvancedAffirmations = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext]);
-
-  // Animation variants
-  const slideVariants = {
-    enter: (direction) => ({
-      x: direction === 'next' ? 300 : -300,
-      opacity: 0,
-      scale: 0.8,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      scale: 1,
-    },
-    exit: (direction) => ({
-      x: direction === 'next' ? -300 : 300,
-      opacity: 0,
-      scale: 0.8,
-    }),
-  };
+  }, [handlePrev, handleNext, speakAffirmation, toggleFavorite]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);

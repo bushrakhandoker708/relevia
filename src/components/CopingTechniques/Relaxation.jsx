@@ -28,7 +28,7 @@ const relaxationTechniques = {
         instruction: "Find a comfortable position, either sitting or lying down. Close your eyes and take three slow, deep breaths.",
         duration: 20,
         bodyPart: "preparation",
-        guidance: "Allow your body to settle into this moment. You are completely safe here."
+        guidance: "Allow your body to settle into this moment. Check that your surroundings are suitable before continuing. You can pause or stop."
       },
       { 
         instruction: "Curl your toes tightly, creating tension in your feet. Hold this tension for 5 seconds... now release and let your feet go completely limp.",
@@ -82,7 +82,7 @@ const relaxationTechniques = {
         instruction: "Take a moment to scan your entire body from head to toe. Notice the deep relaxation flowing through every muscle.",
         duration: 45,
         bodyPart: "full body scan",
-        guidance: "You are completely relaxed, safe, and at peace. This feeling of calm will stay with you."
+        guidance: "You may notice comfort, discomfort or no change. Notice how you feel without expecting a particular outcome."
       }
     ]
   },
@@ -115,7 +115,7 @@ const relaxationTechniques = {
         instruction: "Listen carefully and identify 3 different things you can HEAR right now. Perhaps sounds from outside, inside, near or far.",
         duration: 45,
         bodyPart: "hearing",
-        guidance: "These sounds connect you to the world around you. You are safe in this moment."
+        guidance: "These sounds connect you to the world around you. Check that your surroundings are suitable before continuing. You can pause or stop."
       },
       { 
         instruction: "Gently notice 2 things you can SMELL. Take slow breaths to identify scents in your environment.",
@@ -172,7 +172,7 @@ const relaxationTechniques = {
         instruction: "Feel the temperature and textures in your space. Is it warmly sunny or coolly comfortable? What can you touch - soft grass, warm sand, a cozy blanket?",
         duration: 55,
         bodyPart: "physical sensations",
-        guidance: "Every sensation confirms your safety and comfort. Your body relaxes deeper into this peaceful environment."
+        guidance: "An imagined setting cannot establish your physical safety. Your body relaxes deeper into this peaceful environment."
       },
       { 
         instruction: "Notice any pleasant scents in your safe place - ocean air, flowers, fresh rain, or something that brings you comfort.",
@@ -184,7 +184,7 @@ const relaxationTechniques = {
         instruction: "Find the most comfortable spot in your safe place and settle in. Feel how protected and loved you are here.",
         duration: 80,
         bodyPart: "settling in",
-        guidance: "You are completely safe here. Nothing can harm or disturb you. You deserve this peace and tranquility."
+        guidance: "Check that your surroundings are suitable before continuing. You can pause or stop. You can stop this exercise at any time. You deserve this peace and tranquility."
       },
       { 
         instruction: "Know that this safe place lives within you and you can return here anytime. Take three deep breaths and slowly prepare to return, carrying this peace with you.",
@@ -282,7 +282,6 @@ const AdvancedRelaxation = () => {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [initialAnxiety, setInitialAnxiety] = useState(5);
-  const [currentAnxiety, setCurrentAnxiety] = useState(5);
   const [showSettings, setShowSettings] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [autoAdvance, setAutoAdvance] = useState(true);
@@ -312,40 +311,7 @@ const AdvancedRelaxation = () => {
     return () => clearInterval(sessionTimerRef.current);
   }, [isActive, isPaused]);
 
-  // Step timer
-  useEffect(() => {
-    if (isActive && !isPaused && timeRemaining > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1);
-      }, 1000);
-    } else if (timeRemaining === 0 && isActive && !isPaused) {
-      if (autoAdvance) {
-        handleNextStep();
-      }
-    }
-
-    return () => clearTimeout(timerRef.current);
-  }, [isActive, isPaused, timeRemaining, autoAdvance]);
-
-  // Voice guidance
-  useEffect(() => {
-    if (voiceEnabled && isActive && currentStepData && 'speechSynthesis' in window && !isPaused) {
-      // Wait 2 seconds before speaking to allow for transition
-      setTimeout(() => {
-        if (isActive && !isPaused) {
-          speakInstruction(currentStepData.instruction);
-          // Speak guidance after instruction with delay
-          setTimeout(() => {
-            if (isActive && !isPaused) {
-              speakInstruction(currentStepData.guidance);
-            }
-          }, (currentStepData.instruction.length * 50) + 2000); // Adjust timing based on instruction length
-        }
-      }, 2000);
-    }
-  }, [currentStep, isActive, voiceEnabled, isPaused]);
-
-  const speakInstruction = (text) => {
+  const speakInstruction = useCallback((text) => {
     if (!voiceEnabled || isPaused) return;
     
     window.speechSynthesis.cancel();
@@ -364,7 +330,63 @@ const AdvancedRelaxation = () => {
     
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  };
+  }, [voiceEnabled, isPaused, voiceSpeed]);
+
+  const completeSession = useCallback(() => {
+    setIsActive(false);
+    setIsCompleted(true);
+    setCompletedSessions(prev => prev + 1);
+
+  }, []);
+
+  const handleNextStep = useCallback(() => {
+    if (currentStep < currentTechnique.steps.length - 1) {
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      setTimeRemaining(currentTechnique.steps[nextStep].duration);
+    } else {
+      completeSession();
+    }
+  }, [currentStep, currentTechnique, completeSession]);
+
+  // Step timer
+  useEffect(() => {
+    if (isActive && !isPaused && timeRemaining > 0) {
+      timerRef.current = setTimeout(() => {
+        setTimeRemaining(prev => prev - 1);
+      }, 1000);
+    } else if (timeRemaining === 0 && isActive && !isPaused) {
+      if (autoAdvance) {
+        handleNextStep();
+      }
+    }
+
+    return () => clearTimeout(timerRef.current);
+  }, [isActive, isPaused, timeRemaining, autoAdvance, handleNextStep]);
+
+  // Cancel both delayed utterances when the step or playback state changes.
+  useEffect(() => {
+    if (!voiceEnabled || !isActive || isPaused || !currentStepData || !('speechSynthesis' in window)) return;
+    let guidanceTimer;
+    const instructionTimer = setTimeout(() => {
+      speakInstruction(currentStepData.instruction);
+      guidanceTimer = setTimeout(() => speakInstruction(currentStepData.guidance), currentStepData.instruction.length * 50 + 2000);
+    }, 2000);
+    return () => {
+      clearTimeout(instructionTimer);
+      clearTimeout(guidanceTimer);
+      window.speechSynthesis.cancel();
+    };
+  }, [voiceEnabled, isActive, isPaused, currentStepData, speakInstruction]);
+
+  useEffect(() => {
+    if (!isCompleted || !voiceEnabled || isPaused || !('speechSynthesis' in window)) return;
+    const timer = setTimeout(() => speakInstruction('You have completed the session. Notice how you feel without expecting a particular change.'), 1000);
+    return () => {
+      clearTimeout(timer);
+      window.speechSynthesis.cancel();
+    };
+  }, [isCompleted, voiceEnabled, isPaused, speakInstruction]);
 
   const startTechnique = () => {
     setIsActive(true);
@@ -373,21 +395,10 @@ const AdvancedRelaxation = () => {
     setIsCompleted(false);
     setTimeRemaining(currentTechnique.steps[0].duration);
     setTotalTime(currentTechnique.steps.reduce((acc, step) => acc + step.duration, 0));
-    setCurrentAnxiety(initialAnxiety);
     startTimeRef.current = Date.now();
   };
 
-  const handleNextStep = () => {
-    if (currentStep < currentTechnique.steps.length - 1) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setTimeRemaining(currentTechnique.steps[nextStep].duration);
-      // Simulate gradual anxiety reduction
-      setCurrentAnxiety(prev => Math.max(1, prev - 0.3));
-    } else {
-      completeSession();
-    }
-  };
+
 
   const handlePrevStep = () => {
     if (currentStep > 0) {
@@ -398,18 +409,7 @@ const AdvancedRelaxation = () => {
     }
   };
 
-  const completeSession = () => {
-    setIsActive(false);
-    setIsCompleted(true);
-    setCompletedSessions(prev => prev + 1);
-    setCurrentAnxiety(Math.max(1, initialAnxiety - 2 - Math.random() * 2));
-    
-    if (voiceEnabled) {
-      setTimeout(() => {
-        speakInstruction("Wonderful! You've completed the session. Take a moment to notice how much calmer and more relaxed you feel now.");
-      }, 1000);
-    }
-  };
+
 
   const pauseResume = () => {
     setIsPaused(!isPaused);
@@ -425,7 +425,6 @@ const AdvancedRelaxation = () => {
     setIsCompleted(false);
     setTimeRemaining(0);
     setSessionTime(0);
-    setCurrentAnxiety(initialAnxiety);
     startTimeRef.current = null;
     window.speechSynthesis.cancel();
   };
@@ -476,7 +475,7 @@ const AdvancedRelaxation = () => {
                 <p className="text-sm">If you're in immediate danger or having thoughts of self-harm:</p>
                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
                   <p className="font-bold">Crisis Hotlines:</p>
-                  <p>• National Suicide Prevention Lifeline: <strong>988</strong></p>
+                  <p>• If there is immediate danger, contact your local emergency service now.</p>
                   <p>• Crisis Text Line: Text HOME to <strong>741741</strong></p>
                   <p>• International: <strong>iasp.info/resources</strong></p>
                 </div>
@@ -521,8 +520,8 @@ const AdvancedRelaxation = () => {
               <div className="text-sm opacity-75">Progress</div>
             </div>
             <div className={`${cardClass} rounded-xl p-4 text-center`}>
-              <div className="text-lg font-bold">{Math.round(currentAnxiety * 10) / 10}/10</div>
-              <div className="text-sm opacity-75">Stress Level</div>
+              <div className="text-lg font-bold">{initialAnxiety}/10</div>
+              <div className="text-sm opacity-75">Selected starting rating</div>
             </div>
             <div className={`${cardClass} rounded-xl p-4 text-center`}>
               <CheckCircleIcon className="w-6 h-6 text-green-500 mx-auto mb-2" />
@@ -760,7 +759,7 @@ const AdvancedRelaxation = () => {
                 Excellent Work!
               </h2>
               <p className="text-lg opacity-75 mb-6 max-w-2xl mx-auto">
-                You've completed the {currentTechnique.name} session. Take a moment to notice the positive changes in your body and mind.
+                You've completed the {currentTechnique.name} session. You may feel different, unchanged or uncomfortable; there is no required outcome.
               </p>
             </div>
             
@@ -768,9 +767,9 @@ const AdvancedRelaxation = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
               <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'}`}>
                 <div className="text-2xl font-bold text-green-500">
-                  -{Math.round((initialAnxiety - currentAnxiety) * 10) / 10}
+                  Not measured
                 </div>
-                <div className="text-sm opacity-75">Stress Reduction</div>
+                <div className="text-sm opacity-75">Change in stress</div>
               </div>
               <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'}`}>
                 <div className="text-2xl font-bold text-blue-500">{formatTime(sessionTime)}</div>

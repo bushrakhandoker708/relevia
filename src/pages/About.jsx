@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence, useInView } from 'framer-motion';
+import { motion as Motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { 
   Heart, 
   Shield, 
@@ -90,7 +90,7 @@ const FloatingParticles = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {particles.map((particle) => (
-        <motion.div
+        <Motion.div
           key={particle.id}
           className={`absolute rounded-full bg-gradient-to-br from-${particle.color}-200/20 to-${particle.color}-300/10 backdrop-blur-sm`}
           style={{
@@ -132,7 +132,7 @@ const InteractiveCard = ({ children, className = "", variants = cardVariants, ..
   };
 
   return (
-    <motion.div
+    <Motion.div
       variants={variants}
       whileHover="hover"
       onMouseEnter={() => setIsHovered(true)}
@@ -144,7 +144,7 @@ const InteractiveCard = ({ children, className = "", variants = cardVariants, ..
       }}
       {...props}
     >
-      <motion.div
+      <Motion.div
         className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/10 to-transparent pointer-events-none"
         animate={{
           opacity: isHovered ? 0.8 : 0,
@@ -155,7 +155,7 @@ const InteractiveCard = ({ children, className = "", variants = cardVariants, ..
         transition={{ duration: 0.3 }}
       />
       {children}
-    </motion.div>
+    </Motion.div>
   );
 };
 
@@ -199,15 +199,15 @@ const panicCauses = [
 ];
 
 const panicSymptoms = [
-  { symptom: "Racing heart or palpitations", description: "Your heart is doing its job - pumping blood to help you cope", icon: <Heart className="text-red-500" /> },
+  { symptom: "Racing heart or palpitations", description: "A racing heartbeat can have several causes; this page cannot identify yours.", icon: <Heart className="text-red-500" /> },
   { symptom: "Sweating or sudden chills", description: "Your body's natural cooling or warming system responding to stress", icon: <Zap className="text-blue-500" /> },
-  { symptom: "Difficulty breathing or feeling suffocated", description: "Shallow breathing is common during anxiety - your lungs are actually fine", icon: <Sparkles className="text-cyan-500" /> },
-  { symptom: "Dizziness or feeling lightheaded", description: "Often caused by breathing changes - you're safe, even if you feel unsteady", icon: <Eye className="text-purple-500" /> },
-  { symptom: "Chest tightness or discomfort", description: "Muscle tension from stress - not your heart, even though it feels scary", icon: <Shield className="text-orange-500" /> },
+  { symptom: "Difficulty breathing or feeling suffocated", description: "Breathlessness can occur with anxiety or other conditions. Seek urgent help for severe breathing difficulty.", icon: <Sparkles className="text-cyan-500" /> },
+  { symptom: "Dizziness or feeling lightheaded", description: "Sit somewhere supported if you feel unsteady. Seek medical advice if symptoms are new or concerning.", icon: <Eye className="text-purple-500" /> },
+  { symptom: "Chest tightness or discomfort", description: "Chest discomfort needs appropriate medical assessment; do not assume it is anxiety.", icon: <Shield className="text-orange-500" /> },
   { symptom: "Nausea or stomach upset", description: "Your digestive system slows during stress - this is temporary", icon: <Sparkles className="text-green-500" /> },
-  { symptom: "Tingling in hands, feet, or face", description: "Changes in blood flow during anxiety - uncomfortable but harmless", icon: <Zap className="text-yellow-500" /> },
+  { symptom: "Tingling in hands, feet, or face", description: "Tingling has several possible causes. This page cannot determine whether yours is harmless.", icon: <Zap className="text-yellow-500" /> },
   { symptom: "Feeling like you can't swallow", description: "Throat muscles can tense up - sip water slowly if you can", icon: <Info className="text-pink-500" /> },
-  { symptom: "Fear of losing control or 'going crazy'", description: "This feeling is the panic talking - you're still you, and you're safe", icon: <Brain className="text-indigo-500" /> },
+  { symptom: "Fear of losing control or 'going crazy'", description: "This feeling can be distressing. A qualified professional can help assess what is happening.", icon: <Brain className="text-indigo-500" /> },
   { symptom: "Overwhelming fear of dying", description: "Panic tricks your brain into thinking there's danger - but you're going to be okay", icon: <Heart className="text-red-400" /> }
 ];
 
@@ -216,7 +216,6 @@ function PanicUnderstanding() {
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
   const scale = useTransform(scrollY, [0, 300], [1, 0.8]);
   
-  const [activeSection, setActiveSection] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -233,7 +232,7 @@ function PanicUnderstanding() {
       <FloatingParticles />
       
       {/* Mouse follower effect */}
-      <motion.div
+      <Motion.div
         className="fixed w-6 h-6 rounded-full bg-gradient-to-r from-primary-400/20 to-secondary-400/20 pointer-events-none z-50 mix-blend-multiply"
         animate={{
           x: mousePosition.x - 12,
@@ -248,7 +247,7 @@ function PanicUnderstanding() {
 
       <div className="container mx-auto px-6 relative z-10 max-w-7xl py-20">
         {/* Hero Section with enhanced animations */}
-        <motion.section
+        <Motion.section
           initial="hidden"
           animate="visible"
           variants={heroVariants}
@@ -256,7 +255,7 @@ function PanicUnderstanding() {
           className="text-center mb-24"
         >
           <div className="flex justify-center items-center mb-12">
-            <motion.div
+            <Motion.div
               animate={{ 
                 scale: [1, 1.1, 1],
                 rotate: [0, 5, -5, 0]
@@ -269,24 +268,24 @@ function PanicUnderstanding() {
               className="relative"
             >
               <Heart className="text-8xl text-red-400 mr-8" />
-              <motion.div
+              <Motion.div
                 className="absolute -top-2 -right-2 text-2xl"
                 animate={{ rotate: 360 }}
                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
               >
                 <Sparkles className="text-yellow-400" />
-              </motion.div>
-            </motion.div>
+              </Motion.div>
+            </Motion.div>
             
             <div className="text-center">
-              <motion.h1 
+              <Motion.h1
                 className="text-6xl md:text-8xl font-heading font-bold bg-gradient-to-r from-neutral-800 via-primary-700 to-secondary-700 bg-clip-text text-transparent leading-tight mb-4"
                 animate={{ backgroundPosition: ["0%", "100%"] }}
                 transition={{ duration: 3, repeat: Infinity, repeatType: "reverse" }}
               >
                 Understanding Panic Attacks
-              </motion.h1>
-              <motion.div
+              </Motion.h1>
+              <Motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.8 }}
@@ -295,17 +294,17 @@ function PanicUnderstanding() {
                 <p className="text-2xl text-primary-600 font-medium font-handwritten">
                   You're not alone in this journey ✨
                 </p>
-                <motion.div
+                <Motion.div
                   className="absolute -top-1 -right-6 text-accent-400"
                   animate={{ y: [-5, 5, -5] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   <Star className="text-lg" />
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
             </div>
             
-            <motion.div
+            <Motion.div
               animate={{ 
                 scale: [1, 1.1, 1],
                 rotate: [0, -5, 5, 0]
@@ -319,17 +318,17 @@ function PanicUnderstanding() {
               className="relative"
             >
               <Shield className="text-8xl text-primary-400 ml-8" />
-              <motion.div
+              <Motion.div
                 className="absolute -bottom-2 -left-2 text-2xl"
                 animate={{ scale: [1, 1.3, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
                 <Leaf className="text-secondary-500" />
-              </motion.div>
-            </motion.div>
+              </Motion.div>
+            </Motion.div>
           </div>
           
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 1 }}
@@ -337,22 +336,22 @@ function PanicUnderstanding() {
           >
             <p className="text-xl text-neutral-600 leading-relaxed mb-12 font-body">
               If you're here, you might be experiencing panic attacks or supporting someone who is. 
-              First, take a deep breath - you're safe, you're going to be okay, and what you're going through is more common than you might think. 
+              Panic can feel frightening. This page offers general information and cannot determine the cause of your symptoms.
               Let's explore what panic attacks are, why they happen, and most importantly, how you can feel better.
             </p>
             
-            <motion.div
+            <Motion.div
               animate={{ y: [0, 10, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
               className="text-primary-400"
             >
               <ArrowDown className="text-3xl mx-auto" />
-            </motion.div>
-          </motion.div>
-        </motion.section>
+            </Motion.div>
+          </Motion.div>
+        </Motion.section>
 
         {/* What is a Panic Attack - Enhanced */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -361,35 +360,35 @@ function PanicUnderstanding() {
         >
           <InteractiveCard className="bg-gradient-to-br from-white/90 to-neutral-100/70 backdrop-blur-md rounded-3xl p-12 border-2 border-white/60 shadow-soft">
             <div className="text-center mb-12">
-              <motion.div
+              <Motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.8 }}
                 className="inline-block mb-8"
               >
                 <Brain className="text-8xl text-primary-500 drop-shadow-lg" />
-              </motion.div>
+              </Motion.div>
               <h2 className="text-5xl font-heading font-bold text-neutral-800 mb-8">
                 What Exactly is a Panic Attack?
               </h2>
-              <motion.div
+              <Motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
                 className="text-2xl text-center text-primary-600 font-medium mb-12 font-handwritten bg-primary-50 p-6 rounded-2xl border-2 border-primary-200/50"
               >
                 Think of a panic attack as your body's alarm system going off when there's no real emergency.
-                <motion.div
+                <Motion.div
                   animate={{ rotate: [0, 10, -10, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
                   className="inline-block ml-2"
                 >
                   🚨
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
             </div>
 
             <div className="max-w-5xl mx-auto space-y-8 text-xl leading-relaxed font-body text-neutral-700">
-              <motion.p
+              <Motion.p
                 initial={{ x: -50, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.3 }}
@@ -398,48 +397,45 @@ function PanicUnderstanding() {
                 It's like your body's emergency response system - designed to protect you from danger - gets triggered 
                 even when you're actually safe. These episodes are brief but incredibly intense, usually lasting between 
                 5 to 20 minutes, though it can feel like an eternity when you're in the middle of one.
-              </motion.p>
+              </Motion.p>
 
-              <motion.p
+              <Motion.p
                 initial={{ x: 50, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
                 During a panic attack, you might feel like you're losing control, having a heart attack, or even dying. 
                 These feelings are terrifying, but here's the important part: <strong className="text-secondary-600 bg-secondary-100 px-2 py-1 rounded">
-                you are not in actual danger</strong>. Your body is having a very real, very intense response to 
-                something it perceives as threatening, even though there's no real threat present.
-              </motion.p>
+                similar symptoms can have other causes</strong>. Seek medical assessment for new or concerning symptoms, and urgent help if you may be in immediate danger.
+              </Motion.p>
 
-              <motion.div
+              <Motion.div
                 initial={{ y: 30, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.5 }}
                 className="bg-gradient-to-r from-secondary-50 to-secondary-100 p-8 rounded-2xl border-l-8 border-secondary-400 my-12 relative overflow-hidden"
               >
-                <motion.div
+                <Motion.div
                   className="absolute top-0 right-0 text-6xl opacity-10"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                 >
                   <CheckCircle />
-                </motion.div>
+                </Motion.div>
                 <h3 className="text-3xl font-heading font-semibold text-secondary-700 mb-6 flex items-center">
                   <CheckCircle className="mr-4 text-4xl" />
-                  Remember This Truth
+                  When to seek support
                 </h3>
                 <p className="text-xl text-secondary-700 relative z-10">
-                  Panic attacks are uncomfortable and scary, but they are not dangerous. They cannot hurt you, 
-                  cause heart attacks, or make you "go crazy." You will get through this, just like you've 
-                  gotten through every difficult moment before.
+                  A website cannot confirm that your symptoms are a panic attack. If you have severe chest pain, severe breathing difficulty or another possible emergency, seek urgent medical help instead of waiting for an exercise to work.
                 </p>
-              </motion.div>
+              </Motion.div>
             </div>
           </InteractiveCard>
-        </motion.section>
+        </Motion.section>
 
         {/* Why Do Panic Attacks Happen - Enhanced Grid */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
@@ -447,12 +443,12 @@ function PanicUnderstanding() {
           className="mb-24"
         >
           <div className="text-center mb-16">
-            <motion.div
+            <Motion.div
               whileHover={{ scale: 1.1 }}
               className="inline-block mb-8"
             >
               <Lightbulb className="text-7xl text-accent-500 drop-shadow-lg" />
-            </motion.div>
+            </Motion.div>
             <h2 className="text-4xl font-heading font-bold text-neutral-800 mb-6">
               Why Do Panic Attacks Happen?
             </h2>
@@ -462,7 +458,7 @@ function PanicUnderstanding() {
             </p>
           </div>
 
-          <motion.div
+          <Motion.div
             variants={containerVariants}
             initial="hidden"
             whileInView="visible"
@@ -474,21 +470,21 @@ function PanicUnderstanding() {
                 key={index}
                 className={`bg-gradient-to-br ${cause.gradient}/80 to-white/50 backdrop-blur-md border-2 border-${cause.color}-200/60 p-8 rounded-3xl shadow-soft hover:shadow-xl transition-all duration-500 relative overflow-hidden`}
               >
-                <motion.div
+                <Motion.div
                   className="absolute -top-10 -right-10 opacity-5 text-8xl"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
                 >
                   {cause.icon}
-                </motion.div>
+                </Motion.div>
                 
                 <div className="flex items-start mb-6 relative z-10">
-                  <motion.div
+                  <Motion.div
                     whileHover={{ scale: 1.2, rotate: 15 }}
                     className={`p-4 bg-gradient-to-br from-white to-${cause.color}-50 rounded-2xl shadow-soft mr-6 text-${cause.color}-600`}
                   >
                     {cause.icon}
-                  </motion.div>
+                  </Motion.div>
                   <h3 className="font-heading font-bold text-neutral-800 text-2xl leading-tight">
                     {cause.title}
                   </h3>
@@ -497,25 +493,25 @@ function PanicUnderstanding() {
                   {cause.description}
                 </p>
                 
-                <motion.div
+                <Motion.div
                   className="absolute bottom-4 right-4 opacity-20"
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   <Sparkles className="text-2xl" />
-                </motion.div>
+                </Motion.div>
               </InteractiveCard>
             ))}
-          </motion.div>
+          </Motion.div>
 
-          <motion.div
+          <Motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.6 }}
             className="mt-16 text-center"
           >
             <div className="bg-gradient-to-r from-accent-50 via-white to-accent-50 p-10 rounded-3xl border-2 border-accent-200/60 max-w-4xl mx-auto relative overflow-hidden shadow-soft">
-              <motion.div
+              <Motion.div
                 className="absolute inset-0 bg-gradient-to-r from-accent-100/20 to-transparent"
                 animate={{ x: [-100, 100] }}
                 transition={{ duration: 8, repeat: Infinity, repeatType: "reverse" }}
@@ -530,11 +526,11 @@ function PanicUnderstanding() {
                 say anything negative about who you are as a person.
               </p>
             </div>
-          </motion.div>
-        </motion.section>
+          </Motion.div>
+        </Motion.section>
 
         {/* Enhanced Symptoms Section */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -543,23 +539,23 @@ function PanicUnderstanding() {
         >
           <InteractiveCard className="bg-gradient-to-br from-white/90 to-neutral-100/70 backdrop-blur-md rounded-3xl p-12 border-2 border-white/60 shadow-soft">
             <div className="text-center mb-16">
-              <motion.div
+              <Motion.div
                 whileHover={{ rotate: [0, -10, 10, 0] }}
                 transition={{ duration: 0.6 }}
                 className="inline-block mb-8"
               >
                 <Stethoscope className="text-7xl text-secondary-500 drop-shadow-lg" />
-              </motion.div>
+              </Motion.div>
               <h2 className="text-4xl font-heading font-bold text-neutral-800 mb-6">
                 What Does a Panic Attack Feel Like?
               </h2>
               <p className="text-xl text-neutral-600 max-w-4xl mx-auto leading-relaxed">
                 Recognizing these symptoms can help you understand what's happening in your body. 
-                Remember, these feelings are your body's way of trying to protect you - they're intense but not harmful.
+                These symptoms can have different causes. A clinician can help assess them and discuss suitable support.
               </p>
             </div>
 
-            <motion.div
+            <Motion.div
               variants={containerVariants}
               initial="hidden"
               whileInView="visible"
@@ -580,12 +576,12 @@ function PanicUnderstanding() {
                   }}
                 >
                   <div className="flex items-start mb-4">
-                    <motion.div
+                    <Motion.div
                       whileHover={{ scale: 1.3 }}
                       className="mr-4 mt-1"
                     >
                       {item.icon}
-                    </motion.div>
+                    </Motion.div>
                     <div className="flex-1">
                       <h3 className="font-heading font-bold text-neutral-800 mb-3 text-lg">
                         {item.symptom}
@@ -596,25 +592,25 @@ function PanicUnderstanding() {
                     </div>
                   </div>
                   
-                  <motion.div
+                  <Motion.div
                     className="absolute top-2 right-2 opacity-10"
                     animate={{ rotate: 360 }}
                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                   >
                     <Heart className="text-2xl" />
-                  </motion.div>
+                  </Motion.div>
                 </InteractiveCard>
               ))}
-            </motion.div>
+            </Motion.div>
 
-            <motion.div
+            <Motion.div
               initial={{ y: 30, opacity: 0 }}
               whileInView={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.8 }}
               className="mt-16 text-center relative"
             >
               <div className="bg-gradient-to-r from-primary-50 via-primary-100 to-primary-50 p-10 rounded-3xl border-2 border-primary-200/60 shadow-soft relative overflow-hidden">
-                <motion.div
+                <Motion.div
                   className="absolute inset-0 bg-gradient-to-r from-yellow-100/30 to-transparent"
                   animate={{ rotate: [0, 360] }}
                   transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
@@ -624,17 +620,15 @@ function PanicUnderstanding() {
                   The Most Important Thing to Remember
                 </h3>
                 <p className="text-xl text-primary-700 font-body max-w-3xl mx-auto leading-relaxed relative z-10">
-                  No matter how intense these symptoms feel, panic attacks are temporary. They have a beginning, 
-                  a peak (usually within 10 minutes), and an end. Your body is designed to return to calm - 
-                  it's just a matter of riding the wave until it passes.
+                  If these symptoms are recurring, consider speaking with a qualified health professional. Do not use a predicted duration to decide whether urgent medical help is needed.
                 </p>
               </div>
-            </motion.div>
+            </Motion.div>
           </InteractiveCard>
-        </motion.section>
+        </Motion.section>
 
         {/* When to Seek Help - Enhanced */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -643,12 +637,12 @@ function PanicUnderstanding() {
         >
           <InteractiveCard className="bg-gradient-to-br from-white/80 to-neutral-100/60 backdrop-blur-md rounded-3xl p-12 border-2 border-white/50 shadow-soft">
             <div className="text-center mb-12">
-              <motion.div
+              <Motion.div
                 whileHover={{ scale: 1.1 }}
                 className="inline-block mb-8"
               >
                 <UserCheck className="text-7xl text-accent-500 drop-shadow-lg" />
-              </motion.div>
+              </Motion.div>
               <h2 className="text-4xl font-heading font-bold text-neutral-800 mb-6">
                 When Should You Reach Out for Help?
               </h2>
@@ -656,7 +650,7 @@ function PanicUnderstanding() {
 
             <div className="max-w-6xl mx-auto">
               <div className="grid lg:grid-cols-2 gap-12">
-                <motion.div
+                <Motion.div
                   initial={{ x: -50, opacity: 0 }}
                   whileInView={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.2 }}
@@ -674,26 +668,26 @@ function PanicUnderstanding() {
                       "You're using alcohol, drugs, or other substances to cope with anxiety",
                       "You're experiencing depression along with panic attacks"
                     ].map((item, index) => (
-                      <motion.div
+                      <Motion.div
                         key={index}
                         initial={{ x: -30, opacity: 0 }}
                         whileInView={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.3 + index * 0.1 }}
                         className="flex items-start group"
                       >
-                        <motion.div
+                        <Motion.div
                           className="w-3 h-3 bg-secondary-400 rounded-full mt-2 mr-4 flex-shrink-0"
                           whileHover={{ scale: 1.5 }}
                         />
                         <p className="text-neutral-700 font-body text-lg leading-relaxed group-hover:text-secondary-700 transition-colors">
                           {item}
                         </p>
-                      </motion.div>
+                      </Motion.div>
                     ))}
                   </div>
-                </motion.div>
+                </Motion.div>
 
-                <motion.div
+                <Motion.div
                   initial={{ x: 50, opacity: 0 }}
                   whileInView={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
@@ -716,7 +710,7 @@ function PanicUnderstanding() {
                         { title: "Medication options", desc: "when appropriate, can help manage symptoms", icon: <Pill className="text-accent-500" /> },
                         { title: "Support groups", desc: "connecting with others who understand", icon: <Users className="text-secondary-500" /> }
                       ].map((treatment, index) => (
-                        <motion.div
+                        <Motion.div
                           key={index}
                           initial={{ y: 20, opacity: 0 }}
                           whileInView={{ y: 0, opacity: 1 }}
@@ -731,20 +725,20 @@ function PanicUnderstanding() {
                             <strong className="text-neutral-800">{treatment.title}</strong>
                             <span className="text-neutral-600"> - {treatment.desc}</span>
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       ))}
                     </div>
                   </div>
-                </motion.div>
+                </Motion.div>
               </div>
 
-              <motion.div
+              <Motion.div
                 initial={{ y: 30, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
                 className="mt-12 text-center bg-gradient-to-r from-accent-50 via-accent-100 to-accent-50 p-8 rounded-3xl border-2 border-accent-200/60 relative overflow-hidden"
               >
-                <motion.div
+                <Motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                   animate={{ x: [-100, 100] }}
                   transition={{ duration: 6, repeat: Infinity, repeatType: "reverse" }}
@@ -754,13 +748,13 @@ function PanicUnderstanding() {
                   their symptoms completely and go on to live full, rich lives. Recovery is not only possible - it's probable 
                   with the right support and tools.
                 </p>
-              </motion.div>
+              </Motion.div>
             </div>
           </InteractiveCard>
-        </motion.section>
+        </Motion.section>
 
         {/* Hope and Recovery Section - Completely Enhanced */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -768,7 +762,7 @@ function PanicUnderstanding() {
           className="mb-24"
         >
           <InteractiveCard className="bg-gradient-to-br from-primary-50 via-secondary-50 to-accent-50 rounded-3xl p-12 border-2 border-white/50 shadow-soft relative overflow-hidden">
-            <motion.div
+            <Motion.div
               className="absolute inset-0 bg-gradient-to-r from-primary-100/20 via-transparent to-secondary-100/20"
               animate={{ rotate: [0, 360] }}
               transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
@@ -776,7 +770,7 @@ function PanicUnderstanding() {
             
             <div className="text-center mb-12 relative z-10">
               <div className="flex justify-center items-center mb-8">
-                <motion.div
+                <Motion.div
                   animate={{
                     scale: [1, 1.1, 1],
                     rotate: [0, 5, -5, 0]
@@ -789,20 +783,20 @@ function PanicUnderstanding() {
                   className="relative"
                 >
                   <Sun className="text-8xl text-yellow-400 mr-6 drop-shadow-lg" />
-                  <motion.div
+                  <Motion.div
                     className="absolute -top-2 -right-2"
                     animate={{ rotate: 360 }}
                     transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                   >
                     <Sparkles className="text-2xl text-yellow-300" />
-                  </motion.div>
-                </motion.div>
+                  </Motion.div>
+                </Motion.div>
                 
                 <h2 className="text-5xl font-heading font-bold text-neutral-800">
                   Your Path Forward
                 </h2>
                 
-                <motion.div
+                <Motion.div
                   animate={{
                     scale: [1, 1.1, 1],
                     rotate: [0, -5, 5, 0]
@@ -816,26 +810,26 @@ function PanicUnderstanding() {
                   className="relative"
                 >
                   <Leaf className="text-8xl text-secondary-400 ml-6 drop-shadow-lg" />
-                  <motion.div
+                  <Motion.div
                     className="absolute -bottom-2 -left-2"
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
                     <Heart className="text-xl text-red-400" />
-                  </motion.div>
-                </motion.div>
+                  </Motion.div>
+                </Motion.div>
               </div>
             </div>
 
             <div className="max-w-5xl mx-auto space-y-12 relative z-10">
-              <motion.div
+              <Motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2 }}
                 className="text-center"
               >
                 <div className="bg-gradient-to-r from-primary-100 via-white to-secondary-100 p-8 rounded-2xl border-2 border-primary-200/50 relative overflow-hidden">
-                  <motion.div
+                  <Motion.div
                     className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-400 to-secondary-400"
                     animate={{ scaleX: [0, 1, 0] }}
                     transition={{ duration: 4, repeat: Infinity }}
@@ -845,9 +839,9 @@ function PanicUnderstanding() {
                     "Panic attacks can be terrifying experiences, but they are treatable with the right combination of techniques, therapy, and support."
                   </p>
                 </div>
-              </motion.div>
+              </Motion.div>
 
-              <motion.div
+              <Motion.div
                 variants={containerVariants}
                 initial="hidden"
                 whileInView="visible"
@@ -878,37 +872,37 @@ function PanicUnderstanding() {
                     key={index}
                     className={`text-center p-8 bg-gradient-to-br ${item.gradient}/60 to-white/50 rounded-2xl shadow-soft border-2 border-white/50 relative overflow-hidden`}
                   >
-                    <motion.div
+                    <Motion.div
                       whileHover={{ scale: 1.2, rotate: 360 }}
                       transition={{ duration: 0.6 }}
                       className="mx-auto mb-6 inline-block p-4 bg-white/80 rounded-full shadow-soft"
                     >
                       {item.icon}
-                    </motion.div>
+                    </Motion.div>
                     <h3 className="font-heading font-bold text-neutral-800 text-xl mb-4">
                       {item.title}
                     </h3>
                     <p className="text-neutral-600 font-body leading-relaxed">
                       {item.desc}
                     </p>
-                    <motion.div
+                    <Motion.div
                       className="absolute -bottom-4 -right-4 opacity-10"
                       animate={{ rotate: 360 }}
                       transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
                     >
                       <Star className="text-4xl" />
-                    </motion.div>
+                    </Motion.div>
                   </InteractiveCard>
                 ))}
-              </motion.div>
+              </Motion.div>
 
-              <motion.div
+              <Motion.div
                 initial={{ y: 30, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
                 className="text-center bg-gradient-to-br from-white/90 to-neutral-100/60 p-10 rounded-3xl shadow-soft border-2 border-white/50 relative overflow-hidden"
               >
-                <motion.div
+                <Motion.div
                   className="absolute inset-0 bg-gradient-to-r from-yellow-100/30 via-transparent to-blue-100/30"
                   animate={{ x: [-50, 50, -50] }}
                   transition={{ duration: 10, repeat: Infinity }}
@@ -918,20 +912,20 @@ function PanicUnderstanding() {
                   and regain control of your life. Many people who've walked this path before you are now 
                   living fulfilling, joyful lives.
                 </p>
-                <motion.p 
+                <Motion.p
                   className="text-xl text-primary-600 font-medium font-handwritten relative z-10"
                   animate={{ color: ['#0284C7', '#10B981', '#8B5CF6', '#0284C7'] }}
                   transition={{ duration: 6, repeat: Infinity }}
                 >
                   You have the strength within you. Take it one breath, one moment, one day at a time. ✨
-                </motion.p>
-              </motion.div>
+                </Motion.p>
+              </Motion.div>
             </div>
           </InteractiveCard>
-        </motion.section>
+        </Motion.section>
 
         {/* Final Support Section - Completely Redesigned */}
-        <motion.section
+        <Motion.section
           initial={{ opacity: 0, y: 60 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -939,7 +933,7 @@ function PanicUnderstanding() {
           className="text-center"
         >
           <InteractiveCard className="bg-gradient-to-br from-white/80 to-neutral-100/60 backdrop-blur-md rounded-3xl p-12 border-2 border-white/50 shadow-soft relative overflow-hidden">
-            <motion.div
+            <Motion.div
               className="absolute inset-0 bg-gradient-to-r from-primary-50/50 via-transparent to-secondary-50/50"
               animate={{ 
                 background: [
@@ -953,42 +947,42 @@ function PanicUnderstanding() {
             />
             
             <div className="flex items-center justify-center mb-8 relative z-10">
-              <motion.div
+              <Motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 3, repeat: Infinity }}
                 className="relative"
               >
                 <Heart className="text-6xl text-red-400 mr-6 animate-gentlePulse" />
-                <motion.div
+                <Motion.div
                   className="absolute -top-1 -right-1 text-xl"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 >
                   ❤️
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
               
               <h2 className="text-4xl font-heading font-bold text-neutral-800">
                 Remember: You Are Not Alone
               </h2>
               
-              <motion.div
+              <Motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
                 className="relative"
               >
                 <Shield className="text-6xl text-primary-400 ml-6 animate-gentlePulse" />
-                <motion.div
+                <Motion.div
                   className="absolute -bottom-1 -left-1 text-xl"
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   🛡️
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
             </div>
             
-            <motion.p 
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               whileInView={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -998,15 +992,15 @@ function PanicUnderstanding() {
               If you're reading this to understand panic attacks better, know that your journey toward healing 
               is already beginning. Every step you take, every technique you learn, every moment of self-compassion 
               you practice is progress.
-            </motion.p>
+            </Motion.p>
 
-            <motion.div
+            <Motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               whileInView={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.4 }}
               className="mt-10 p-8 bg-gradient-to-r from-accent-50 via-primary-50 to-secondary-50 rounded-2xl border-2 border-accent-200/50 relative overflow-hidden"
             >
-              <motion.div
+              <Motion.div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
                 animate={{ x: [-200, 200] }}
                 transition={{ duration: 8, repeat: Infinity, repeatType: "reverse" }}
@@ -1019,24 +1013,24 @@ function PanicUnderstanding() {
               <p className="text-lg text-neutral-600 font-handwritten relative z-10">
                 - Joseph Campbell
               </p>
-              <motion.p 
+              <Motion.p
                 className="text-neutral-600 mt-4 text-center font-body relative z-10"
                 animate={{ opacity: [0.7, 1, 0.7] }}
                 transition={{ duration: 3, repeat: Infinity }}
               >
                 Your courage in facing this challenge is the first step toward freedom from it. 🌟
-              </motion.p>
-            </motion.div>
+              </Motion.p>
+            </Motion.div>
 
             {/* Final encouraging animation */}
-            <motion.div
+            <Motion.div
               initial={{ scale: 0 }}
               whileInView={{ scale: 1 }}
               transition={{ delay: 0.8, type: "spring", damping: 15 }}
               className="mt-10 flex justify-center space-x-4"
             >
               {[Heart, Sun, Leaf, Star, Sparkles].map((Icon, index) => (
-                <motion.div
+                <Motion.div
                   key={index}
                   animate={{ 
                     y: [0, -10, 0],
@@ -1056,11 +1050,11 @@ function PanicUnderstanding() {
                     ${index === 3 ? 'text-accent-400' : ''}
                     ${index === 4 ? 'text-primary-400' : ''}
                   `} />
-                </motion.div>
+                </Motion.div>
               ))}
-            </motion.div>
+            </Motion.div>
           </InteractiveCard>
-        </motion.section>
+        </Motion.section>
       </div>
     </div>
   );

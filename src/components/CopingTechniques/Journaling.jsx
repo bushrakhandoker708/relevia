@@ -115,7 +115,7 @@ const moodCategories = {
 };
 
 // Advanced sentiment analysis with context awareness and therapeutic insights
-const analyzeSentiment = (text, previousEntries = []) => {
+const analyzeSentiment = (text) => {
   if (!text || text.length < 10) return { 
     polarity: 0, subjectivity: 0, arousal: 0, complexity: 0, coherence: 0, growth: 0,
     selfCompassion: 0, mindfulness: 0, resilience: 0, problemSolving: 0
@@ -167,7 +167,7 @@ const generateSmartIntervention = (sentiment, mood, timeOfDay, sessionLength, pr
     grounding: [
       "Notice 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, 1 you can taste.",
       "Take three deep breaths. With each exhale, let your shoulders drop a little more.",
-      "Feel your feet on the ground. You are here, you are present, you are safe.",
+      "Feel your feet on the ground. You are here, you are present. You can stop if this feels uncomfortable.",
       "Place your hand on your heart. Feel it beating steadily, supporting you through this moment.",
       "Look around and name three objects you can see. Notice their colors and textures.",
       "Press your palms together and feel the warmth and pressure. You are connected to yourself."
@@ -201,7 +201,7 @@ const generateSmartIntervention = (sentiment, mood, timeOfDay, sessionLength, pr
       "Notice the thoughts without becoming them. You are the observer of your experience.",
       "What sensations do you feel in your body right now? Just notice without changing anything.",
       "Can you create a small space between you and your emotions? You are not your feelings.",
-      "Breathe in awareness, breathe out tension. You are safe in this moment.",
+      "Breathe in awareness, breathe out tension. Check that your surroundings are suitable before continuing. You can pause or stop.",
       "Your awareness is like the sky - vast enough to hold all weather patterns of emotion."
     ]
   };
@@ -249,8 +249,8 @@ const useAutoSave = (data, delay = 2000) => {
       
       setLastSaved(new Date());
       setIsSaving(false);
-    } catch (error) {
-      console.error('Auto-save failed:', error);
+    } catch {
+      console.error('Journal auto-save failed');
       setSaveError('Failed to save');
       setIsSaving(false);
     }
@@ -301,7 +301,7 @@ const useVoiceFeatures = () => {
           );
           setSelectedVoice(preferredVoice || availableVoices[0]);
         }
-      } catch (error) {
+      } catch {
         setVoiceError('Speech synthesis not supported');
       }
     };
@@ -336,7 +336,7 @@ const useVoiceFeatures = () => {
       };
       
       speechSynthesis.speak(utteranceRef.current);
-    } catch (error) {
+    } catch {
       setVoiceError('Unable to read text aloud');
     }
   };
@@ -416,7 +416,6 @@ export default function AdvancedCalmJournal() {
   const [currentPrompt, setCurrentPrompt] = useState('');
   const [promptDifficulty, setPromptDifficulty] = useState('beginner');
   const [promptCategory, setPromptCategory] = useState('empathic');
-  const [showSettings, setShowSettings] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   
   // Mood and analytics
@@ -441,8 +440,8 @@ export default function AdvancedCalmJournal() {
   const [lineHeight, setLineHeight] = useState('1.6');
   const [fontFamily, setFontFamily] = useState('Georgia');
   const [textAlign, setTextAlign] = useState('left');
-  const [textColor, setTextColor] = useState('#374151');
-  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const [textColor] = useState('#374151');
+  const [backgroundColor] = useState('#ffffff');
   const [theme, setTheme] = useState('light');
   
   // Advanced functionality
@@ -450,7 +449,6 @@ export default function AdvancedCalmJournal() {
   const [wordGoal, setWordGoal] = useState(null);
   const [timeGoal, setTimeGoal] = useState(null);
   const [sessionStart, setSessionStart] = useState(null);
-  const [breaks, setBreaks] = useState([]);
   const [focusMode, setFocusMode] = useState(false);
   const [writingMode, setWritingMode] = useState('freeform');
   
@@ -459,17 +457,17 @@ export default function AdvancedCalmJournal() {
   const [showIntervention, setShowIntervention] = useState(false);
   const [currentIntervention, setCurrentIntervention] = useState('');
   const [insights, setInsights] = useState([]);
-  const [therapeuticGoals, setTherapeuticGoals] = useState([]);
   
   // Privacy and security
-  const [privacyMode, setPrivacyMode] = useState(true);
-  const [encryptionEnabled, setEncryptionEnabled] = useState(false);
-  const [dataRetention, setDataRetention] = useState(365);
-  const [shareAnalytics, setShareAnalytics] = useState(false);
   
   // Refs and hooks
   const textAreaRef = useRef(null);
   const interventionTimeoutRef = useRef(null);
+  const hideInterventionTimeoutRef = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(interventionTimeoutRef.current);
+    clearTimeout(hideInterventionTimeoutRef.current);
+  }, []);
   const { isSaving, lastSaved, saveError } = useAutoSave({ text, title, tags, mood });
   const { readText, stopReading, isReading, voices, selectedVoice, setSelectedVoice, voiceError } = useVoiceFeatures();
   const { streakCount, totalSessions, achievements, updateProgress } = useProgressTracking();
@@ -514,8 +512,8 @@ export default function AdvancedCalmJournal() {
         if (settings.promptDifficulty) setPromptDifficulty(settings.promptDifficulty);
         if (settings.promptCategory) setPromptCategory(settings.promptCategory);
       }
-    } catch (error) {
-      console.error('Error loading saved data:', error);
+    } catch {
+      console.error('Could not load saved journal data');
     }
   }, [updateProgress]);
   
@@ -539,6 +537,48 @@ export default function AdvancedCalmJournal() {
     setCurrentPrompt(getSmartPrompt());
   }, [promptDifficulty, promptCategory, customPrompts]);
   
+  const generateInsight = useCallback((sentiment) => {
+    const insightTemplates = [
+      'Would you like to name one detail that matters to you in this entry?',
+      'These word-pattern indicators cannot measure your mental health or personal growth.',
+      'You can pause, leave this entry unfinished or seek support from someone you trust.',
+      'Consider whether this prompt fits your experience; you do not need to agree with it.'
+    ];
+
+    const insight = {
+      id: Date.now(),
+      text: insightTemplates[Math.floor(Math.random() * insightTemplates.length)],
+      timestamp: new Date(),
+      sentiment: sentiment,
+      category: sentiment.growth > 0.4 ? 'growth' : sentiment.selfCompassion > 0.4 ? 'compassion' : 'processing'
+    };
+
+    setInsights(prev => [...prev.slice(-4), insight]);
+  }, []);
+
+  const triggerSmartIntervention = useCallback((currentSentiment) => {
+    if (interventionTimeoutRef.current) clearTimeout(interventionTimeoutRef.current);
+
+    interventionTimeoutRef.current = setTimeout(() => {
+      const timeOfDay = new Date().getHours();
+      const sessionLength = sessionStart ? (Date.now() - sessionStart.getTime()) / 1000 / 60 : 0;
+
+      const intervention = generateSmartIntervention(
+        currentSentiment,
+        mood,
+        timeOfDay,
+        sessionLength,
+        interventions.slice(-5)
+      );
+
+      setCurrentIntervention(intervention);
+      setShowIntervention(true);
+
+      clearTimeout(hideInterventionTimeoutRef.current);
+      hideInterventionTimeoutRef.current = setTimeout(() => setShowIntervention(false), 15000);
+    }, 3000);
+  }, [sessionStart, mood, interventions]);
+
   // Real-time analysis
   useEffect(() => {
     if (text.length > 50) {
@@ -553,10 +593,10 @@ export default function AdvancedCalmJournal() {
       // Trigger smart intervention
       const wordCount = text.split(' ').filter(w => w.length > 0).length;
       if (wordCount > 0 && wordCount % 100 === 0) {
-        triggerSmartIntervention();
+        triggerSmartIntervention(sentiment);
       }
     }
-  }, [text, entries]);
+  }, [text, entries, generateInsight, triggerSmartIntervention]);
   
   // Save entries to localStorage
   useEffect(() => {
@@ -568,54 +608,14 @@ export default function AdvancedCalmJournal() {
   // Save settings
   useEffect(() => {
     const settings = {
-      theme, fontSize, fontFamily, promptDifficulty, promptCategory,
-      privacyMode, encryptionEnabled, dataRetention
+      theme, fontSize, fontFamily, promptDifficulty, promptCategory
     };
     localStorage.setItem('journalSettings', JSON.stringify(settings));
-  }, [theme, fontSize, fontFamily, promptDifficulty, promptCategory, privacyMode, encryptionEnabled, dataRetention]);
+  }, [theme, fontSize, fontFamily, promptDifficulty, promptCategory]);
   
-  const generateInsight = (sentiment) => {
-    const insightTemplates = [
-      `Your writing shows ${sentiment.growth > 0.5 ? 'strong signs of personal growth and self-reflection' : 'authentic emotional processing'}.`,
-      `The complexity in your thoughts (${Math.round(sentiment.complexity * 100)}%) suggests deep, nuanced thinking.`,
-      `Your emotional awareness is evident through your ${sentiment.subjectivity > 0.7 ? 'highly personal' : 'balanced'} expression.`,
-      `You're demonstrating ${sentiment.selfCompassion > 0.4 ? 'good self-compassion' : 'room to practice more self-kindness'}.`,
-      `Your mindfulness level (${Math.round(sentiment.mindfulness * 100)}%) shows ${sentiment.mindfulness > 0.3 ? 'present-moment awareness' : 'potential for deeper presence'}.`,
-      `The resilience in your words (${Math.round(sentiment.resilience * 100)}%) reflects your ${sentiment.resilience > 0.4 ? 'strong coping skills' : 'developing strength'}.`
-    ];
-    
-    const insight = {
-      id: Date.now(),
-      text: insightTemplates[Math.floor(Math.random() * insightTemplates.length)],
-      timestamp: new Date(),
-      sentiment: sentiment,
-      category: sentiment.growth > 0.4 ? 'growth' : sentiment.selfCompassion > 0.4 ? 'compassion' : 'processing'
-    };
-    
-    setInsights(prev => [...prev.slice(-4), insight]);
-  };
+
   
-  const triggerSmartIntervention = () => {
-    if (interventionTimeoutRef.current) clearTimeout(interventionTimeoutRef.current);
-    
-    interventionTimeoutRef.current = setTimeout(() => {
-      const timeOfDay = new Date().getHours();
-      const sessionLength = sessionStart ? (Date.now() - sessionStart.getTime()) / 1000 / 60 : 0;
-      
-      const intervention = generateSmartIntervention(
-        sentimentData, 
-        mood, 
-        timeOfDay, 
-        sessionLength, 
-        interventions.slice(-5)
-      );
-      
-      setCurrentIntervention(intervention);
-      setShowIntervention(true);
-      
-      setTimeout(() => setShowIntervention(false), 15000);
-    }, 3000);
-  };
+
   
   const handleInterventionResponse = (helpful) => {
     const intervention = {
@@ -1261,7 +1261,7 @@ export default function AdvancedCalmJournal() {
         <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-2xl border border-indigo-100/30">
           <h4 className="text-sm font-medium text-slate-600 mb-3 flex items-center">
             <Activity size={16} className="mr-2 text-indigo-600" />
-            Live Writing Analysis
+            Experimental word-pattern indicators
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div className="text-center">
@@ -1741,57 +1741,11 @@ export default function AdvancedCalmJournal() {
           <Shield size={20} className="mr-2 text-green-600" />
           Privacy & Security
         </h3>
-        <div className="space-y-4">
-          <label className="flex items-center justify-between">
-            <div>
-              <span className="text-slate-700 font-medium">Privacy Mode</span>
-              <p className="text-sm text-slate-500">All processing happens locally on your device</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={privacyMode}
-              onChange={(e) => setPrivacyMode(e.target.checked)}
-              className="rounded w-5 h-5"
-            />
-          </label>
-          <label className="flex items-center justify-between">
-            <div>
-              <span className="text-slate-700 font-medium">Enable Data Encryption</span>
-              <p className="text-sm text-slate-500">Encrypt your journal entries and personal data</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={encryptionEnabled}
-              onChange={(e) => setEncryptionEnabled(e.target.checked)}
-              className="rounded w-5 h-5"
-            />
-          </label>
-          <div>
-            <label className="block text-slate-700 font-medium mb-2">Data Retention Period</label>
-            <select
-              value={dataRetention}
-              onChange={(e) => setDataRetention(parseInt(e.target.value))}
-              className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
-            >
-              <option value={30}>30 days</option>
-              <option value={90}>90 days</option>
-              <option value={365}>1 year</option>
-              <option value={-1}>Forever</option>
-            </select>
-          </div>
-          <label className="flex items-center justify-between">
-            <div>
-              <span className="text-slate-700 font-medium">Share Anonymous Analytics</span>
-              <p className="text-sm text-slate-500">Help improve the app with anonymous usage data</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={shareAnalytics}
-              onChange={(e) => setShareAnalytics(e.target.checked)}
-              className="rounded w-5 h-5"
-            />
-          </label>
-        </div>
+        <p className="text-sm text-slate-600">
+          Journal entries and drafts are saved automatically in this browser. They are not encrypted by Relevia and have no automatic expiry.
+          Anyone using this browser profile may be able to read them. The chat's session-only and deletion controls do not clear journal data.
+          Avoid saving sensitive information on a shared device. Voice playback depends on your browser and selected voice service.
+        </p>
       </div>
 
       {/* Voice Settings */}
@@ -1995,7 +1949,7 @@ export default function AdvancedCalmJournal() {
                         if (data.entries) setEntries(data.entries);
                         if (data.customPrompts) setCustomPrompts(data.customPrompts);
                         showNotification('Data restored successfully!', 'success');
-                      } catch (error) {
+                      } catch {
                         showNotification('Invalid backup file', 'error');
                       }
                     };
@@ -2117,7 +2071,7 @@ export default function AdvancedCalmJournal() {
             <p className={`text-lg font-light italic ${
               theme === 'dark' ? 'text-gray-300' : 'text-slate-500'
             }`}>
-              Advanced AI-enhanced journaling with privacy-first design
+              Local journaling with optional reflection prompts
             </p>
           </div>
 
@@ -2165,7 +2119,7 @@ export default function AdvancedCalmJournal() {
             <p className={`text-sm font-light italic ${
               theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
             }`}>
-              Your thoughts are safe, your growth is tracked, and your journey matters.
+              Journal entries may be stored in this browser. Avoid including information you do not want saved on this device.
             </p>
             <div className="flex justify-center items-center gap-6 mt-4 text-xs text-slate-400">
               <div className="flex items-center gap-1">

@@ -40,7 +40,7 @@ const visualizationScenarios = {
         instruction: "Close your eyes gently and take three deep, cleansing breaths. Let your body settle into complete comfort.",
         duration: 25,
         scene: "preparation",
-        guidance: "You are safe and supported. This is your time to find peace and restoration.",
+        guidance: "Check that your surroundings are suitable before continuing. You can pause or stop. This is your time to find peace and restoration.",
         visualCue: "🌊"
       },
       {
@@ -475,39 +475,6 @@ const AdvancedVisualization = () => {
     return () => clearInterval(sessionTimerRef.current);
   }, [isActive, isPaused]);
 
-  // Step timer
-  useEffect(() => {
-    if (isActive && !isPaused && timeRemaining > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1);
-      }, 1000);
-    } else if (timeRemaining === 0 && isActive && !isPaused && autoAdvance) {
-      handleNextStep();
-    }
-
-    return () => clearTimeout(timerRef.current);
-  }, [isActive, isPaused, timeRemaining, autoAdvance]);
-
-  // Voice guidance
-  useEffect(() => {
-    if (voiceEnabled && isActive && currentStepData && 'speechSynthesis' in window && !isPaused) {
-      const speakAfterDelay = setTimeout(() => {
-        if (isActive && !isPaused) {
-          speakInstruction(currentStepData.instruction);
-          const guidanceDelay = setTimeout(() => {
-            if (isActive && !isPaused) {
-              speakInstruction(currentStepData.guidance);
-            }
-          }, (currentStepData.instruction.length * 60) + 3000);
-          
-          return () => clearTimeout(guidanceDelay);
-        }
-      }, 2000);
-      
-      return () => clearTimeout(speakAfterDelay);
-    }
-  }, [currentStep, isActive, voiceEnabled, isPaused]);
-
   const speakInstruction = useCallback((text) => {
     if (!voiceEnabled || isPaused) return;
     
@@ -554,6 +521,70 @@ const AdvancedVisualization = () => {
     }));
   }, [selectedScenario, personalSettings.customDurations, currentScenario]);
 
+  const completeSession = useCallback(() => {
+    setIsActive(false);
+    setIsCompleted(true);
+    setCompletedSessions(prev => prev + 1);
+
+    // Add to favorites if not already there
+    if (!personalSettings.favoriteScenarios.includes(selectedScenario)) {
+      setPersonalSettings(prev => ({
+        ...prev,
+        favoriteScenarios: [...prev.favoriteScenarios, selectedScenario]
+      }));
+    }
+
+  }, [personalSettings.favoriteScenarios, selectedScenario]);
+
+  const handleNextStep = useCallback(() => {
+    const steps = getAdjustedSteps();
+
+    if (currentStep < steps.length - 1) {
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      setTimeRemaining(steps[nextStep].duration);
+    } else {
+      completeSession();
+    }
+  }, [currentStep, getAdjustedSteps, completeSession]);
+
+  // Step timer
+  useEffect(() => {
+    if (isActive && !isPaused && timeRemaining > 0) {
+      timerRef.current = setTimeout(() => {
+        setTimeRemaining(prev => prev - 1);
+      }, 1000);
+    } else if (timeRemaining === 0 && isActive && !isPaused && autoAdvance) {
+      handleNextStep();
+    }
+
+    return () => clearTimeout(timerRef.current);
+  }, [isActive, isPaused, timeRemaining, autoAdvance, handleNextStep]);
+
+  // Cancel both delayed utterances when the step or playback state changes.
+  useEffect(() => {
+    if (!voiceEnabled || !isActive || isPaused || !currentStepData || !('speechSynthesis' in window)) return;
+    let guidanceTimer;
+    const instructionTimer = setTimeout(() => {
+      speakInstruction(currentStepData.instruction);
+      guidanceTimer = setTimeout(() => speakInstruction(currentStepData.guidance), currentStepData.instruction.length * 50 + 2000);
+    }, 2000);
+    return () => {
+      clearTimeout(instructionTimer);
+      clearTimeout(guidanceTimer);
+      window.speechSynthesis.cancel();
+    };
+  }, [voiceEnabled, isActive, isPaused, currentStepData, speakInstruction]);
+
+  useEffect(() => {
+    if (!isCompleted || !voiceEnabled || isPaused || !('speechSynthesis' in window)) return;
+    const timer = setTimeout(() => speakInstruction('You have completed the session. Notice how you feel without expecting a particular change.'), 1000);
+    return () => {
+      clearTimeout(timer);
+      window.speechSynthesis.cancel();
+    };
+  }, [isCompleted, voiceEnabled, isPaused, speakInstruction]);
+
   const startVisualization = () => {
     const steps = getAdjustedSteps();
     setIsActive(true);
@@ -566,17 +597,7 @@ const AdvancedVisualization = () => {
     startTimeRef.current = Date.now();
   };
 
-  const handleNextStep = useCallback(() => {
-    const steps = getAdjustedSteps();
-    
-    if (currentStep < steps.length - 1) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setTimeRemaining(steps[nextStep].duration);
-    } else {
-      completeSession();
-    }
-  }, [currentStep, getAdjustedSteps]);
+
 
   const handlePrevStep = useCallback(() => {
     const steps = getAdjustedSteps();
@@ -591,25 +612,7 @@ const AdvancedVisualization = () => {
     }
   }, [currentStep, getAdjustedSteps]);
 
-  const completeSession = () => {
-    setIsActive(false);
-    setIsCompleted(true);
-    setCompletedSessions(prev => prev + 1);
-    
-    // Add to favorites if not already there
-    if (!personalSettings.favoriteScenarios.includes(selectedScenario)) {
-      setPersonalSettings(prev => ({
-        ...prev,
-        favoriteScenarios: [...prev.favoriteScenarios, selectedScenario]
-      }));
-    }
-    
-    if (voiceEnabled) {
-      setTimeout(() => {
-        speakInstruction("Beautiful work. You have completed your visualization journey. Take a moment to feel the peace and healing you've received.");
-      }, 1000);
-    }
-  };
+
 
   const pauseResume = () => {
     setIsPaused(!isPaused);

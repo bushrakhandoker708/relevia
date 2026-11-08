@@ -1,4 +1,4 @@
-import { motion, useAnimation } from 'framer-motion';
+import { motion as Motion, useAnimation } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaTimes, FaBars } from 'react-icons/fa';
@@ -52,7 +52,7 @@ function Navbar() {
   }, [isOpen, controls]);
 
   return (
-    <motion.nav
+    <Motion.nav
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -68,7 +68,7 @@ function Navbar() {
 
         <div className="hidden md:flex space-x-8">
           {navLinks.map((link) => (
-            <motion.div
+            <Motion.div
               key={link.to}
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -79,28 +79,28 @@ function Navbar() {
               >
                 {link.label}
               </Link>
-            </motion.div>
+            </Motion.div>
           ))}
         </div>
 
-        <motion.button
+        <Motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen(true)}
           className="md:hidden text-neutral-50"
         >
           <FaBars size={24} />
-        </motion.button>
+        </Motion.button>
       </div>
 
-      <motion.div
+      <Motion.div
         variants={menuVariants}
         initial="closed"
         animate={controls}
         className="fixed inset-0 bg-gradient-to-br from-teal-400/50 via-blue-400/50 to-purple-400/50 flex flex-col items-center justify-center space-y-8 z-30 "
       >
         {navLinks.map((link) => (
-          <motion.div key={link.to} variants={linkVariants}>
+          <Motion.div key={link.to} variants={linkVariants}>
             <Link
               to={link.to}
               className="text-neutral-50 text-3xl font-body tracking-wide"
@@ -108,9 +108,9 @@ function Navbar() {
             >
               {link.label}
             </Link>
-          </motion.div>
+          </Motion.div>
         ))}
-        <motion.button
+        <Motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen(false)}
@@ -118,9 +118,9 @@ function Navbar() {
           variants={linkVariants}
         >
           <FaTimes size={28} />
-        </motion.button>
-      </motion.div>
-    </motion.nav>
+        </Motion.button>
+      </Motion.div>
+    </Motion.nav>
   );
 }
 

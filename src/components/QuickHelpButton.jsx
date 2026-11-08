@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 function QuickHelpButton() {
   const buttonVariants = {
@@ -48,7 +48,7 @@ function QuickHelpButton() {
 
   return (
     <Link to="/coping" className="fixed bottom-6 right-6 z-50">
-      <motion.div
+      <Motion.div
         className="relative flex items-center justify-center bg-gradient-to-br from-accent-500 to-accent-600 shadow-lg overflow-hidden"
         variants={buttonVariants}
         initial="idle"
@@ -57,7 +57,7 @@ function QuickHelpButton() {
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         layout
       >
-        <motion.div
+        <Motion.div
           className="absolute -inset-2 bg-accent-300/20 rounded-full"
           animate={{
             scale: [1, 1.1, 1],
@@ -69,7 +69,7 @@ function QuickHelpButton() {
             ease: "easeInOut",
           }}
         />
-        <motion.div
+        <Motion.div
           className="absolute -inset-4 bg-accent-200/10 rounded-full"
           animate={{
             scale: [1, 1.15, 1],
@@ -82,7 +82,7 @@ function QuickHelpButton() {
           }}
         />
         {[...Array(3)].map((_, i) => (
-          <motion.div
+          <Motion.div
             key={i}
             className="absolute w-3 h-3 bg-accent-100/50 rounded-full"
             initial={{ opacity: 0, y: 0 }}
@@ -102,7 +102,7 @@ function QuickHelpButton() {
             }}
           />
         ))}
-        <motion.div variants={iconVariants}>
+        <Motion.div variants={iconVariants}>
           <svg
             className="w-8 h-8 text-white"
             fill="none"
@@ -116,14 +116,14 @@ function QuickHelpButton() {
               d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
             />
           </svg>
-        </motion.div>
-        <motion.span
+        </Motion.div>
+        <Motion.span
           variants={textVariants}
           className="text-white font-body font-bold text-xl tracking-wider ml-4 whitespace-nowrap"
         >
           Quick Help
-        </motion.span>
-      </motion.div>
+        </Motion.span>
+      </Motion.div>
     </Link>
   );
 }

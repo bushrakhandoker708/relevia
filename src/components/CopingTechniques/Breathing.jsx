@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Pause, Play, RotateCcw, Settings, Volume2, VolumeX, Moon, Sun, ChevronUp, ChevronDown } from 'lucide-react';
 import Ballpit from '../Balls';
@@ -55,7 +55,7 @@ const initialPatterns = {
 };
 
 const calmingAffirmations = [
-  { text: "You are safe and at peace", type: "safety" },
+  { text: "You can pause and ask for support", type: "safety" },
   { text: "This moment is yours", type: "present" },
   { text: "You breathe with grace", type: "strength" },
   { text: "Calm flows through you", type: "present" },
@@ -73,7 +73,7 @@ const FloatingParticle = ({ delay = 0, color = '#38BDF8' }) => {
   const duration = 25 + Math.random() * 10;
   
   return (
-    <motion.div
+    <Motion.div
       className="absolute rounded-full opacity-30 pointer-events-none"
       style={{
         width: size,
@@ -116,7 +116,7 @@ const BreathingGuide = ({ phase, progress, isActive, color }) => {
   const svgSize = isMobile ? 280 : 320;
   
   return (
-    <motion.div
+    <Motion.div
       className="absolute inset-0 flex items-center justify-center pointer-events-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: isActive ? 0.4 : 0 }}
@@ -128,7 +128,7 @@ const BreathingGuide = ({ phase, progress, isActive, color }) => {
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </radialGradient>
         </defs>
-        <motion.circle
+        <Motion.circle
           cx={svgSize/2}
           cy={svgSize/2}
           r={circleSize}
@@ -142,7 +142,7 @@ const BreathingGuide = ({ phase, progress, isActive, color }) => {
           transition={{ duration: 0.3, ease: "easeOut" }}
         />
       </svg>
-    </motion.div>
+    </Motion.div>
   );
 };
 
@@ -173,7 +173,7 @@ const ProgressRing = ({ progress, color, size = 240 }) => {
         strokeWidth="2"
         fill="transparent"
       />
-      <motion.circle
+      <Motion.circle
         cx={actualSize/2}
         cy={actualSize/2}
         r="100"
@@ -272,7 +272,6 @@ function Breathing() {
 
   const isMobile = screenSize.width < 768;
   const isTablet = screenSize.width < 1024;
-  const isXL = screenSize.width >= 1280;
 
   // Main breathing loop with bio-feedback integration
   useEffect(() => {
@@ -299,7 +298,7 @@ function Breathing() {
     }, currentPhase.duration);
 
   // Bio-feedback integration
-    const keyHandler = (e) => {
+    const keyHandler = () => {
       if (isRunning) pushEvent(performance.now());
     };
     window.addEventListener('keydown', keyHandler);
@@ -311,7 +310,7 @@ function Breathing() {
     window.addEventListener('click', clickHandler);
 
     // Mouse movement tracker (25 Hz throttle)
-    const moveHandler = (e) => {
+    const moveHandler = () => {
       const now = performance.now();
       if (isRunning && now - lastMoveRef.current > 40) { // 25 Hz = 40ms
         pushEvent(now);
@@ -515,7 +514,7 @@ const startExercise = useCallback(() => {
     : "min-h-screen bg-gradient-to-br from-blue-50 via-sky-100 to-indigo-100";
 
   return (
-    <motion.div
+    <Motion.div
       className={`${bgClass} relative overflow-hidden`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -553,7 +552,7 @@ const startExercise = useCallback(() => {
       {/* Bio-feedback Debug Info - Development only */}
       {/* FIX: was process.env.NODE_ENV, Vite uses import.meta.env */}
       {import.meta.env.DEV && (
-        <motion.div 
+        <Motion.div
           className="fixed top-4 left-4 backdrop-blur-md rounded-xl p-3 text-sm shadow-lg z-30 border"
           style={{
             background: isDarkMode 
@@ -574,7 +573,7 @@ const startExercise = useCallback(() => {
               vol {(0.0003 * (breathingScale ** 2) * 1000).toFixed(2)}
             </div>
           )}
-        </motion.div>
+        </Motion.div>
       )}
 
       {/* Mobile Layout */}
@@ -583,7 +582,7 @@ const startExercise = useCallback(() => {
           
           {/* Mobile Header */}
           <div className="flex-shrink-0 p-4 text-center pt-safe-area-inset-top pt-8">
-            <motion.div
+            <Motion.div
               initial={{ y: -30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 1, delay: 0.3 }}
@@ -598,7 +597,7 @@ const startExercise = useCallback(() => {
               <p className={`text-base ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                 {pattern.description}
               </p>
-            </motion.div>
+            </Motion.div>
           </div>
 
           {/* Mobile Main Circle */}
@@ -612,7 +611,7 @@ const startExercise = useCallback(() => {
               <BreathingGuide phase={currentPhase} progress={progress} isActive={isRunning} color={pattern.color} />
               
               {/* Main Circle */}
-              <motion.div
+              <Motion.div
                 className="relative rounded-full backdrop-blur-xl border shadow-2xl"
                 style={{
                   width: '180px',
@@ -664,7 +663,7 @@ const startExercise = useCallback(() => {
                 
                 {/* Content */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-                  <motion.div
+                  <Motion.div
                     key={currentPhaseIndex}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -683,9 +682,9 @@ const startExercise = useCallback(() => {
                         {Math.ceil(remainingTime / 1000)}s
                       </div>
                     )}
-                  </motion.div>
+                  </Motion.div>
                 </div>
-              </motion.div>
+              </Motion.div>
             </div>
           </div>
 
@@ -693,7 +692,7 @@ const startExercise = useCallback(() => {
           <div className="flex-shrink-0 px-4 mb-4">
             <AnimatePresence mode="wait">
               {currentPhase && (
-                <motion.div
+                <Motion.div
                   key={currentPhaseIndex}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -705,7 +704,7 @@ const startExercise = useCallback(() => {
                   }`}>
                     {currentPhase.instruction}
                   </p>
-                </motion.div>
+                </Motion.div>
               )}
             </AnimatePresence>
           </div>
@@ -714,7 +713,7 @@ const startExercise = useCallback(() => {
           <div className="flex-shrink-0 pointer-events-auto pb-safe-area-inset-bottom">
             {/* Collapse Toggle */}
             <div className="flex justify-center mb-2">
-              <motion.button
+              <Motion.button
                 onClick={() => setIsControlsCollapsed(!isControlsCollapsed)}
                 className="p-2 rounded-full backdrop-blur-md border"
                 style={{
@@ -726,10 +725,10 @@ const startExercise = useCallback(() => {
                 whileTap={{ scale: 0.95 }}
               >
                 {isControlsCollapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </motion.button>
+              </Motion.button>
             </div>
 
-            <motion.div
+            <Motion.div
               initial={false}
               animate={{ 
                 height: isControlsCollapsed ? 0 : 'auto',
@@ -751,7 +750,7 @@ const startExercise = useCallback(() => {
               >
                 
                 {/* Primary Control */}
-                <motion.button
+                <Motion.button
                   onClick={startExercise}
                   className={`w-full py-4 px-6 rounded-2xl font-medium text-lg shadow-xl mb-4 transition-all ${
                     isRunning 
@@ -765,11 +764,11 @@ const startExercise = useCallback(() => {
                     {isRunning ? <Pause size={20} /> : <Play size={20} />}
                     {currentPhaseIndex === -1 ? 'Begin Journey' : isRunning ? 'Pause' : 'Continue'}
                   </div>
-                </motion.button>
+                </Motion.button>
 
                 {/* Secondary Controls */}
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                  <motion.button
+                  <Motion.button
                     onClick={resetExercise}
                     className="py-3 px-3 rounded-xl font-medium transition-all backdrop-blur-md border"
                     style={{
@@ -786,9 +785,9 @@ const startExercise = useCallback(() => {
                     disabled={currentPhaseIndex === -1}
                   >
                     <RotateCcw size={16} className="mx-auto" />
-                  </motion.button>
+                  </Motion.button>
                   
-                  <motion.button
+                  <Motion.button
                     onClick={() => setIsSettingsOpen(true)}
                     className="py-3 px-3 rounded-xl font-medium transition-all backdrop-blur-md"
                     style={{
@@ -799,9 +798,9 @@ const startExercise = useCallback(() => {
                     whileTap={{ scale: 0.98 }}
                   >
                     <Settings size={16} className="mx-auto" />
-                  </motion.button>
+                  </Motion.button>
 
-                  <motion.button
+                  <Motion.button
                     onClick={() => setSoundEnabled(!soundEnabled)}
                     className="py-3 px-3 rounded-xl font-medium transition-all backdrop-blur-md"
                     style={{
@@ -816,9 +815,9 @@ const startExercise = useCallback(() => {
                     whileTap={{ scale: 0.98 }}
                   >
                     {soundEnabled ? <Volume2 size={16} className="mx-auto" /> : <VolumeX size={16} className="mx-auto" />}
-                  </motion.button>
+                  </Motion.button>
 
-                  <motion.button
+                  <Motion.button
                     onClick={() => setIsDarkMode(!isDarkMode)}
                     className="py-3 px-3 rounded-xl font-medium transition-all backdrop-blur-md border"
                     style={{
@@ -834,13 +833,13 @@ const startExercise = useCallback(() => {
                     whileTap={{ scale: 0.98 }}
                   >
                     {isDarkMode ? <Sun size={16} className="mx-auto" /> : <Moon size={16} className="mx-auto" />}
-                  </motion.button>
+                  </Motion.button>
                 </div>
 
                 {/* Pattern Selection - Mobile */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {Object.entries(patterns).map(([key, pat]) => (
-                    <motion.button
+                    <Motion.button
                       key={key}
                       onClick={() => setSelectedPattern(key)}
                       className="p-3 rounded-xl text-left transition-all backdrop-blur-md border"
@@ -864,7 +863,7 @@ const startExercise = useCallback(() => {
                     >
                       <div className="text-lg mb-1">{pat.icon}</div>
                       <div className="font-medium text-xs">{pat.name}</div>
-                    </motion.button>
+                    </Motion.button>
                   ))}
                 </div>
 
@@ -904,7 +903,7 @@ const startExercise = useCallback(() => {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           </div>
         </div>
       ) : (
@@ -915,7 +914,7 @@ const startExercise = useCallback(() => {
           <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 pointer-events-none max-w-[calc(100vw-20rem)]">
             
             {/* Header */}
-            <motion.div
+            <Motion.div
               className="text-center mb-8 md:mb-12"
               initial={{ y: -30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -931,7 +930,7 @@ const startExercise = useCallback(() => {
               <p className={`text-lg md:text-xl max-w-md mx-auto ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                 {pattern.description}
               </p>
-            </motion.div>
+            </Motion.div>
 
             {/* Main Breathing Circle with Glassmorphism */}
             <div className="relative flex items-center justify-center mb-8 md:mb-12">
@@ -943,7 +942,7 @@ const startExercise = useCallback(() => {
               <BreathingGuide phase={currentPhase} progress={progress} isActive={isRunning} color={pattern.color} />
               
               {/* Main Glassmorphism Circle */}
-              <motion.div
+              <Motion.div
                 className="relative rounded-full backdrop-blur-xl border shadow-2xl"
                 style={{
                   width: isTablet ? '200px' : '240px',
@@ -995,7 +994,7 @@ const startExercise = useCallback(() => {
                 
                 {/* Content */}
                 <div className={`absolute inset-0 flex flex-col items-center justify-center text-center ${isTablet ? 'p-4' : 'p-4 md:p-8'}`}>
-                  <motion.div
+                  <Motion.div
                     key={currentPhaseIndex}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -1014,15 +1013,15 @@ const startExercise = useCallback(() => {
                         {Math.ceil(remainingTime / 1000)}s
                       </div>
                     )}
-                  </motion.div>
+                  </Motion.div>
                 </div>
-              </motion.div>
+              </Motion.div>
             </div>
 
             {/* Phase Instruction */}
             <AnimatePresence mode="wait">
               {currentPhase && (
-                <motion.div
+                <Motion.div
                   key={currentPhaseIndex}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1034,7 +1033,7 @@ const startExercise = useCallback(() => {
                   }`}>
                     {currentPhase.instruction}
                   </p>
-                </motion.div>
+                </Motion.div>
               )}
             </AnimatePresence>
           </div>
@@ -1058,7 +1057,7 @@ const startExercise = useCallback(() => {
               <h2 className={`text-xl font-medium filter drop-shadow-sm ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>
                 Controls
               </h2>
-              <motion.button
+              <Motion.button
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-3 rounded-full backdrop-blur-md transition-all border"
                 style={{
@@ -1079,14 +1078,14 @@ const startExercise = useCallback(() => {
                 whileTap={{ scale: 0.95 }}
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </motion.button>
+              </Motion.button>
             </div>
 
             {/* Controls */}
             <div className="space-y-6">
               
               {/* Primary Control */}
-              <motion.button
+              <Motion.button
                 onClick={startExercise}
                 className={`w-full py-4 md:py-6 px-6 md:px-8 rounded-2xl font-medium text-lg shadow-xl transition-all ${
                   isRunning 
@@ -1100,11 +1099,11 @@ const startExercise = useCallback(() => {
                   {isRunning ? <Pause size={24} /> : <Play size={24} />}
                   {currentPhaseIndex === -1 ? 'Begin Your Journey' : isRunning ? 'Pause' : 'Continue'}
                 </div>
-              </motion.button>
+              </Motion.button>
 
               {/* Secondary Controls */}
               <div className="grid grid-cols-3 gap-3 md:gap-4">
-                <motion.button
+                <Motion.button
                   onClick={resetExercise}
                   className="py-3 md:py-4 px-4 md:px-6 rounded-xl font-medium transition-all backdrop-blur-md border"
                   style={{
@@ -1126,9 +1125,9 @@ const startExercise = useCallback(() => {
                   disabled={currentPhaseIndex === -1}
                 >
                   <RotateCcw size={18} className="mx-auto" />
-                </motion.button>
+                </Motion.button>
                 
-                <motion.button
+                <Motion.button
                   onClick={() => setIsSettingsOpen(true)}
                   className="py-3 md:py-4 px-4 md:px-6 rounded-xl font-medium transition-all backdrop-blur-md"
                   style={{
@@ -1142,9 +1141,9 @@ const startExercise = useCallback(() => {
                   whileTap={{ scale: 0.98 }}
                 >
                   <Settings size={18} className="mx-auto" />
-                </motion.button>
+                </Motion.button>
 
-                <motion.button
+                <Motion.button
                   onClick={() => setSoundEnabled(!soundEnabled)}
                   className="py-3 md:py-4 px-4 md:px-6 rounded-xl font-medium transition-all backdrop-blur-md"
                   style={{
@@ -1166,13 +1165,13 @@ const startExercise = useCallback(() => {
                   whileTap={{ scale: 0.98 }}
                 >
                   {soundEnabled ? <Volume2 size={18} className="mx-auto" /> : <VolumeX size={18} className="mx-auto" />}
-                </motion.button>
+                </Motion.button>
               </div>
 
               {/* Pattern Selection */}
               <div className="grid grid-cols-2 gap-3">
                 {Object.entries(patterns).map(([key, pat]) => (
-                  <motion.button
+                  <Motion.button
                     key={key}
                     onClick={() => setSelectedPattern(key)}
                     className="p-3 md:p-4 rounded-xl text-left transition-all backdrop-blur-md border"
@@ -1205,7 +1204,7 @@ const startExercise = useCallback(() => {
                   >
                     <div className="text-xl md:text-2xl mb-1 md:mb-2">{pat.icon}</div>
                     <div className="font-medium text-xs md:text-sm">{pat.name}</div>
-                  </motion.button>
+                  </Motion.button>
                 ))}
               </div>
             </div>
@@ -1259,7 +1258,7 @@ const startExercise = useCallback(() => {
                     background: isDarkMode ? 'rgba(71, 85, 105, 0.5)' : 'rgba(148, 163, 184, 0.5)'
                   }}
                 >
-                  <motion.div
+                  <Motion.div
                     className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full"
                     animate={{ width: `${Math.min(100, (cycle / 10) * 100)}%` }}
                     transition={{ duration: 1, ease: "easeOut" }}
@@ -1274,7 +1273,7 @@ const startExercise = useCallback(() => {
       {/* Affirmations - Universal */}
       <AnimatePresence>
         {currentAffirmation && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 30, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30, scale: 0.9 }}
@@ -1296,21 +1295,21 @@ const startExercise = useCallback(() => {
             }`}>
               ✨ {currentAffirmation}
             </p>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Settings Modal - Universal */}
       <AnimatePresence>
         {isSettingsOpen && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={() => setIsSettingsOpen(false)}
           >
-            <motion.div
+            <Motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1348,7 +1347,7 @@ const startExercise = useCallback(() => {
                   </label>
                   <div className="space-y-3">
                     {Object.entries(patterns).map(([key, pat]) => (
-                      <motion.button
+                      <Motion.button
                         key={key}
                         onClick={() => setSelectedPattern(key)}
                         className="w-full p-4 rounded-xl text-left transition-all backdrop-blur-md border"
@@ -1374,7 +1373,7 @@ const startExercise = useCallback(() => {
                             <div className="text-sm opacity-75">{pat.description}</div>
                           </div>
                         </div>
-                      </motion.button>
+                      </Motion.button>
                     ))}
                   </div>
                 </div>
@@ -1392,24 +1391,24 @@ const startExercise = useCallback(() => {
                   </div>
                 )}
 
-                <motion.button
+                <Motion.button
                   onClick={() => setIsSettingsOpen(false)}
                   className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-medium"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   Continue Journey
-                </motion.button>
+                </Motion.button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Achievement Celebrations */}
       <AnimatePresence>
         {completionCelebration && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, x: isMobile ? 0 : 300, y: isMobile ? 50 : 0 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             exit={{ opacity: 0, x: isMobile ? 0 : 300, y: isMobile ? 50 : 0 }}
@@ -1438,21 +1437,21 @@ const startExercise = useCallback(() => {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Completion Celebration */}
       <AnimatePresence>
         {cycle >= 10 && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             className="fixed inset-0 flex items-start justify-center z-50 pointer-events-none p-4"
           >
             <div className="text-left ">
-              <motion.div
+              <Motion.div
                 animate={{ 
                   rotate: [0, 5, -5, 0],
                   scale: [1, 1.1, 1] 
@@ -1465,7 +1464,7 @@ const startExercise = useCallback(() => {
                 className={`${isMobile ? 'text-4xl' : 'text-4xl md:text-6xl'} mb-4`}
               >
                 🧘‍♀️
-              </motion.div>
+              </Motion.div>
               <h2 className={`${isMobile ? 'text-2xl' : 'text-2xl md:text-4xl'} font-light mb-2 filter drop-shadow-md ${
                 isDarkMode ? 'text-white' : 'text-slate-800'
               }`}>
@@ -1477,14 +1476,14 @@ const startExercise = useCallback(() => {
                 You've reached a beautiful state of calm
               </p>
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Touch-friendly Sound Toggle for non-mobile */}
       {!isMobile && (
         <div className="fixed bottom-4 left-4 z-40">
-          <motion.button
+          <Motion.button
             onClick={() => setSoundEnabled(!soundEnabled)}
             className="p-3 md:p-4 rounded-full backdrop-blur-md border transition-all shadow-lg"
             style={{
@@ -1511,13 +1510,13 @@ const startExercise = useCallback(() => {
             whileTap={{ scale: 0.95 }}
           >
             {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          </motion.button>
+          </Motion.button>
         </div>
       )}
 
       {/* Info Toast - Desktop only */}
       {soundEnabled && !isMobile && (
-        <motion.div 
+        <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
@@ -1533,7 +1532,7 @@ const startExercise = useCallback(() => {
           }}
         >
           🔊 Binaural audio active
-        </motion.div>
+        </Motion.div>
       )}
 
       {/* Mobile-specific CSS improvements */}
@@ -1684,7 +1683,7 @@ const startExercise = useCallback(() => {
           }
         }
       `}</style>
-    </motion.div>
+    </Motion.div>
   );
 }
 

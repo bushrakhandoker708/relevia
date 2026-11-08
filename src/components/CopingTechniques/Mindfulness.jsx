@@ -12,7 +12,6 @@ function Mindfulness() {
   const [isTyping, setIsTyping] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const inputRef = useRef(null);
 
@@ -85,7 +84,7 @@ function Mindfulness() {
       author: "Anonymous"
     },
     {
-      text: "Breathe in courage, breathe out fear. You are safe in this moment.",
+      text: "Breathe in courage, breathe out fear. Check that your surroundings are suitable before continuing. You can pause or stop.",
       author: "Mindfulness Practice"
     },
     {
@@ -171,17 +170,11 @@ function Mindfulness() {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
 
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('resize', handleResize);
-    handleResize();
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -193,7 +186,7 @@ function Mindfulness() {
       }, 4000);
       return () => clearInterval(interval);
     }
-  }, [showQuotes]);
+  }, [showQuotes, inspirationalQuotes.length]);
 
   const startExercise = () => {
     setIsLoading(true);
@@ -378,7 +371,7 @@ function Mindfulness() {
             <div className="text-3xl mb-3">💝</div>
             <h3 className="font-bold text-white text-lg mb-2">Remember</h3>
             <p className="text-white/80 text-base leading-relaxed">
-              You are safe. This feeling will pass. You have overcome challenges before, and you will overcome this too.
+              Check that your surroundings are suitable before continuing. You can pause or stop. There is no requirement to feel calm. Consider reaching out to someone you trust.
             </p>
           </GlassCard>
         </div>
@@ -502,7 +495,7 @@ function Mindfulness() {
             </h1>
 
             <p className="text-white/80 text-base sm:text-lg md:text-xl lg:text-2xl mb-6 md:mb-8 leading-relaxed max-w-3xl mx-auto">
-              You're in a safe space. Let's gently guide you back to calm with the proven 5-4-3-2-1 grounding technique.
+              You can try noticing things around you with this optional grounding exercise. Stop if it feels uncomfortable.
             </p>
 
             <GlassCard className="p-4 md:p-8 mb-8 md:mb-12 max-w-2xl mx-auto rounded-2xl">
