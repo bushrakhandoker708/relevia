@@ -44,6 +44,10 @@ The recorded run passed 18 JavaScript tests covering storage boundaries and infe
 
 The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 
+Since then (Milestone 4, November 2026), routing uses S2, and `src/services/replyGuard.js` replaces any generated reply that refuses to engage or contains an unverified phone number or hotline name. `src/services/browserBenchmark.js` records cold and cached startup, runtime prefill and decode rates, failures and unloading. It has not yet been run in a browser. The application still ships no fine-tuned model.
+
+On Windows laptops with two GPUs, the browser may run the model on the integrated GPU, which makes replies slow. Assign the browser to the high-performance GPU in Settings → System → Display → Graphics.
+
 ## Development and publishing
 
 Keep the application and research histories separate. Changes should explain the problem, the selected correction and the checks that support it. Follow [the writing guide](docs/WRITING_VOICE_GUIDE.md), preserve failed checks and use synthetic dialogue in tests.

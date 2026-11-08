@@ -19,6 +19,7 @@
 import { DB } from './db.js';
 import { newSessionId } from './chatStorage.js';
 import { CrisisFilter } from './safety.js';
+import { guardReply, replyProblem } from './replyGuard.js';
 import { getContextualResponse, analyzeEmotionalTone } from './memoryUtils.js';
 import { MAX_TURNS } from './consts.js';
 import { MODELS, CUSTOM_MODEL, READY_WAIT_MS, MAX_REPLY_TOKENS } from './modelConfig.js';
@@ -86,7 +87,8 @@ export function isEngineReady() {
  */
 async function pickModel() {
   if (!('gpu' in navigator)) return null;
-  const adapter = await navigator.gpu.requestAdapter();
+  // same preference WebLLM uses, so this check describes the GPU that will run the model
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) return null;
 
   const f16 = adapter.features.has('shader-f16');
@@ -99,6 +101,10 @@ async function pickModel() {
   const info = adapter.info || {};
   const intelIntegrated = info.vendor === 'intel' && /^(gen-|xe-lp)/.test(info.architecture || '');
   const weakGpu = intelIntegrated || adapter.isFallbackAdapter || info.isFallbackAdapter;
+  // FOUND: my laptop has an RTX 4060 but Windows gives the browser the Intel GPU, so
+  // replies decoded at ~2 tokens/sec. The page can't switch GPUs itself; Windows
+  // Settings > System > Display > Graphics > (browser) > High performance does.
+  if (intelIntegrated) console.info('[Relevia] Running on integrated graphics. If this computer has a dedicated GPU, set the browser to "High performance" in Windows graphics settings for much faster replies.');
   let tier = lowRam ? 'tiny' : isPhone || !f16 || weakGpu ? 'lite' : 'standard';
   // DEV ONLY, for testing both paths on one machine:
   //   ?tier=standard (or lite / tiny) forces a model, &faststart=1 starts on the 1B even if
@@ -422,11 +428,15 @@ export async function think(text, uid = newSessionId(), onToken) {
       // their name, so the name never flashes up and then disappears.
       const holdUntil = userName ? userName.length + 2 : 0;
       let sent = 0;
+      let blocked = false;
       const chunks = await eng.chat.completions.create({ ...request, stream: true });
       for await (const chunk of chunks) {
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (!delta) continue;
         reply += delta;
+        // stop showing text the moment it starts refusing or inventing a hotline;
+        // the fixed safe reply replaces the bubble when generation ends
+        if (blocked || (blocked = !!replyProblem(reply))) continue;
         if (reply.length < holdUntil) continue;
         const shown = stripName(reply);
         if (shown.length > sent) {
@@ -452,6 +462,9 @@ export async function think(text, uid = newSessionId(), onToken) {
     if (!reply) {
       throw new Error('Empty response from model');
     }
+    const guarded = guardReply(reply);
+    if (guarded.reason) console.warn('[Relevia] Model reply replaced:', guarded.reason);
+    reply = guarded.text;
 
     try { await db.addTurn(trimmedText, reply); } catch { /* UI reports saving status separately */ }
 
@@ -519,7 +532,8 @@ HOW TO REPLY:
 - Be honest: if they say something untrue or harmful about themselves, kindly disagree.
 - Never give medical advice or diagnoses; encourage professional help for serious issues.
 ${nameLine}
-- If they mention self-harm or wanting to die, take it seriously and point them to a locally verified crisis service or emergency services. Never invent contact details or assume the user's location.`
+- If they mention self-harm or wanting to die, take it seriously and point them to a locally verified crisis service or emergency services. Never invent contact details or assume the user's location.
+- If they talk about death, loss or grief, stay with them gently. Never refuse to talk about it and never write phone numbers or hotline names.`
   };
 
   // SPEED: "always the last 12 messages" meant the start of the chat changed on every
