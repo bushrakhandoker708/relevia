@@ -18,8 +18,8 @@
 
 import { DB } from './db.js';
 import { newSessionId } from './chatStorage.js';
-import { CrisisFilter } from './safety.js';
-import { guardReply, replyProblem } from './replyGuard.js';
+import { CrisisFilter } from './safetyS3.js';
+import { guardReply, streamSafeLength } from './replyGuard.js';
 import { getContextualResponse, analyzeEmotionalTone } from './memoryUtils.js';
 import { MAX_TURNS } from './consts.js';
 import { MODELS, CUSTOM_MODEL, READY_WAIT_MS, MAX_REPLY_TOKENS } from './modelConfig.js';
@@ -434,11 +434,16 @@ export async function think(text, uid = newSessionId(), onToken) {
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (!delta) continue;
         reply += delta;
-        // stop showing text the moment it starts refusing or inventing a hotline;
-        // the fixed safe reply replaces the bubble when generation ends
-        if (blocked || (blocked = !!replyProblem(reply))) continue;
-        if (reply.length < holdUntil) continue;
-        const shown = stripName(reply);
+        // FIX (guard audit): checking only the whole text let "I cannot eng..." or half a
+        // phone number reach the screen before the pattern completed. Now only checked
+        // sentences are shown, plus the unfinished one if nothing in it could become a
+        // refusal or a contact detail. Once a problem appears nothing more streams; the
+        // guarded reply replaces the bubble at the end.
+        if (blocked) continue;
+        const safe = streamSafeLength(reply, { userText: trimmedText });
+        if (safe < 0) { blocked = true; continue; }
+        if (safe < holdUntil) continue;
+        const shown = stripName(reply.slice(0, safe));
         if (shown.length > sent) {
           if (db.isCurrent()) onToken(shown.slice(sent));
           sent = shown.length;
@@ -462,8 +467,8 @@ export async function think(text, uid = newSessionId(), onToken) {
     if (!reply) {
       throw new Error('Empty response from model');
     }
-    const guarded = guardReply(reply);
-    if (guarded.reason) console.warn('[Relevia] Model reply replaced:', guarded.reason);
+    const guarded = guardReply(reply, { userText: trimmedText });
+    if (guarded.reason) console.warn('[Relevia] Reply guard:', guarded.reason, guarded.action);
     reply = guarded.text;
 
     try { await db.addTurn(trimmedText, reply); } catch { /* UI reports saving status separately */ }

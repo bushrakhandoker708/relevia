@@ -1,5 +1,5 @@
 /* memoryUtils.js â€“ tone detection + offline fallback replies (used by releviaBrain.js and groqApi.js) */
-import { assessRisk, URGENT_SUPPORT } from './safety.js';
+import { assessRisk, URGENT_SUPPORT } from './safetyS3.js';
 
 export function analyzeEmotionalTone(text) {
   const t = text.toLowerCase();

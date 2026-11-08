@@ -7,7 +7,7 @@ import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from
 import { PREFETCH_AFTER_MS } from '../services/modelConfig';
 import { chatStore, newSessionId, deleteLegacyChat } from '../services/chatStorage.js';
 import ChatPrivacy from './ChatPrivacy.jsx';
-import { CrisisFilter, URGENT_SUPPORT } from '../services/safety.js';
+import { CrisisFilter, FIXED_SAFETY_REPLIES } from '../services/safetyS3.js';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -418,7 +418,7 @@ const ChatbotWidget = () => {
       if (requestEpoch !== generationEpoch.current) return;
       setConnectionStatus('connected');
 
-      const isCrisisResponse = response === URGENT_SUPPORT || response === safetyReply;
+      const isCrisisResponse = FIXED_SAFETY_REPLIES.includes(response) || response === safetyReply;
 
       // Final message with complete response
       const botMessage = {

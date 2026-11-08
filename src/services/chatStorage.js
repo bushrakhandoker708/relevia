@@ -1,5 +1,5 @@
 // Local storage is neither differential privacy nor authentication.
-import { isSensitiveChatText } from './safety.js';
+import { isSensitiveChatText } from './safetyS3.js';
 export const RETENTION_MS = 86400000;
 export const CHAT_PREFIX = 'relevia_chat_v2:';
 export const newSessionId = () => globalThis.crypto.randomUUID();
