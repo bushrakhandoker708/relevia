@@ -1,1 +1,4 @@
 public/weights/*.safetensors filter=lfs diff=lfs merge=lfs -text
+
+# Hook scripts must keep LF endings or /bin/sh cannot run them on checkout
+.githooks/* text eol=lf

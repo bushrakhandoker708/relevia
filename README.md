@@ -44,9 +44,19 @@ The recorded run passed 18 JavaScript tests covering storage boundaries and infe
 
 The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 
-Since then (Milestones 4 and 4.1, November 2026), routing uses S3 (`src/services/safetyS3.js`). A message saying something has already been taken or done, or that the means are at hand, gets a fixed emergency message naming 999, 112 and 911, and is never sent to the model. `src/services/replyGuard.js` (G2) streams only checked text. It replaces inappropriate refusals, keeps refusals to give harmful information, and removes unverifiable service names or numbers. S2 stays in `safety.js` for comparison. The emergency wording still needs review by a qualified person before any public release. `src/services/browserBenchmark.js` records cold and cached startup, runtime prefill and decode rates, failures and unloading. It has not yet been run in a browser. The application still ships no fine-tuned model.
+Since then (Milestones 4 and 4.1, November 2026), routing uses S3 (`src/services/safetyS3.js`). A message saying something has already been taken or done, or that the means are at hand, gets a fixed emergency message naming 999, 112 and 911, and is never sent to the model. `src/services/replyGuard.js` (G2) streams only checked text. It replaces inappropriate refusals, keeps refusals to give harmful information, and removes unverifiable service names or numbers. S2 stays in `safety.js` for comparison. The emergency wording still needs review by a qualified person before any public release. `src/services/browserBenchmark.js` records cold and cached startup, runtime prefill and decode rates, failures and unloading. It has been run once in a browser, on the integrated Intel GPU; the results are in the research repository (`results/performance/browser-v1-intel/`). The application still ships no fine-tuned model.
 
 On Windows laptops with two GPUs, the browser may run the model on the integrated GPU, which makes replies slow. Assign the browser to the high-performance GPU in Settings → System → Display → Graphics.
+
+## Privacy checks before committing or publishing
+
+`scripts/privacy_scan.py` looks for common credential formats, personal contact details, local user paths, model-weight files and Git LFS pointers. It reports each match as a fingerprint and never prints the value. To turn on the pre-commit hook in a fresh clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`npm run privacy:scan` checks every tracked file. `npm run release:check` builds the site, then scans the source and `dist/` together. It fails while any `.privacy-allowlist.json` entry is still marked `pending`, meaning an owner decision is outstanding. CI runs the tree and build scans with read-only repository permissions. The scan only catches patterns it knows about, so it does not prove that nothing private remains. A person still has to read the diff.
 
 ## Development and publishing
 

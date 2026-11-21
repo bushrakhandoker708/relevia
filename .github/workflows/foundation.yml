@@ -1,5 +1,8 @@
 name: Privacy foundation
 on: [push, pull_request]
+# Least privilege: this workflow only reads the repository.
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -9,7 +12,9 @@ jobs:
         with:
           node-version: '22.17.1'
           cache: npm
+      - run: python3 scripts/privacy_scan.py --tree
       - run: npm ci
       - run: npm test
       - run: npx eslint src/services/db.js src/services/chatStorage.js src/services/releviaBrain.js src/services/personalLetter.js src/services/groqApi.js src/components/Chatbot.jsx src/components/ChatPrivacy.jsx src/components/ErrorBoundary.jsx src/components/errorBoundaryHelpers.jsx tests/*.js eslint.config.js --max-warnings 0
       - run: npm run build
+      - run: python3 scripts/privacy_scan.py --dist dist

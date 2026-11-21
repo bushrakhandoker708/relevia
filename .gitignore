@@ -23,3 +23,33 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets and private material (keep these outside the repository; see "Privacy checks" in README.md)
+.env.*
+!.env.example
+private/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+*credentials*.json
+# Raw conversations, chat exports and browser storage dumps
+*chat*export*
+*conversation*export*
+localStorage*.json
+# Model weights and adapters are never committed
+*.safetensors
+*.gguf
+*.ckpt
+*.pt
+*.pth
+adapters/
+# Scratch and personal notes
+scratch/
+notes.local.md
+*.private.md
+
+# Python bytecode from running scripts/privacy_scan.py
+__pycache__/
+*.pyc

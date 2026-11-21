@@ -1,0 +1,20 @@
+#!/bin/sh
+# Block commits whose staged changes match a secret or personal-data rule.
+# Fails closed: if no working Python is found, the commit is refused rather than waved through.
+PY=""
+for candidate in python3 python py; do
+  # Windows ships a "python3" Store stub that exists but cannot run; check each one works.
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c "import sys" >/dev/null 2>&1; then
+    PY=$candidate
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  echo "pre-commit: no working Python found, so the privacy scan cannot run. Commit refused." >&2
+  exit 1
+fi
+"$PY" -I scripts/privacy_scan.py --staged || {
+  echo "pre-commit: privacy scan blocked this commit. Remove the value, or add a reviewed" >&2
+  echo "entry to .privacy-allowlist.json. Never bypass with --no-verify for real secrets." >&2
+  exit 1
+}

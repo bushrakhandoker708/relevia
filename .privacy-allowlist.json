@@ -1,0 +1,20 @@
+[
+  {"rule": "phone_link", "path": "src/services/consts.js", "fingerprint": "a0d199728f184975",
+   "reason": "Samaritans 116 123, a public UK helpline shown deliberately"},
+  {"rule": "phone_link", "path": "dist/assets/Home-*.js", "fingerprint": "a0d199728f184975",
+   "reason": "Samaritans 116 123 bundled from consts.js"},
+  {"rule": "intl_phone", "path": "tests/reply-guard.test.js", "fingerprint": "8326724cd3e7c541",
+   "reason": "Ofcom-reserved drama number (020 7946 0xxx), used to test unverified-contact redaction"},
+  {"rule": "email", "path": "src/pages/Contact.jsx", "fingerprint": "d65687ebdde646bc", "pending": true,
+   "reason": "Personal email address on the public Contact page. Owner must confirm it is meant to be public"},
+  {"rule": "phone_link", "path": "src/pages/Contact.jsx", "fingerprint": "853822f1b44ff08b", "pending": true,
+   "reason": "Personal WhatsApp number on the public Contact page. Owner must confirm it is meant to be public"},
+  {"rule": "social_profile_id", "path": "src/pages/Contact.jsx", "fingerprint": "6172d8027e417041", "pending": true,
+   "reason": "Personal social-media profile link. Owner must confirm it is meant to be public"},
+  {"rule": "email", "path": "dist/assets/Contact-*.js", "fingerprint": "d65687ebdde646bc", "pending": true,
+   "reason": "Bundled from Contact.jsx; same pending decision"},
+  {"rule": "phone_link", "path": "dist/assets/Contact-*.js", "fingerprint": "853822f1b44ff08b", "pending": true,
+   "reason": "Bundled from Contact.jsx; same pending decision"},
+  {"rule": "social_profile_id", "path": "dist/assets/Contact-*.js", "fingerprint": "6172d8027e417041", "pending": true,
+   "reason": "Bundled from Contact.jsx; same pending decision"}
+]

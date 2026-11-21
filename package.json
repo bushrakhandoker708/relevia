@@ -12,7 +12,9 @@
     "build:pages": "vite build --mode pages",
     "predeploy": "npm run build:pages",
     "deploy": "gh-pages -d dist",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "privacy:scan": "python scripts/privacy_scan.py --tree",
+    "release:check": "npm run build && python scripts/privacy_scan.py --release"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
