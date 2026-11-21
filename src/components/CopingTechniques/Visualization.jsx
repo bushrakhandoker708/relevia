@@ -1,28 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Play, 
-  Pause, 
-  RotateCcw,
-  Clock,
-  CheckCircle,
-  Volume2,
-  VolumeX,
-  Settings,
-  Sparkles,
-  Eye,
-  EyeOff,
-  ChevronLeft,
-  ChevronRight,
-  Sun,
-  Moon,
-  Heart,
-  Bell,
-  User,
-  Calendar,
-  AlertTriangle,
-  Plus,
-  X
-} from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Settings, ChevronLeft, ChevronRight, Heart, User, Plus, X } from 'lucide-react';
+import TechniqueShell from './TechniqueShell';
+import PlaceScene from './PlaceScene';
+import { speakSoftly, softVoices } from '../../services/softVoice';
+
+// Browser storage can be blocked (private windows, strict settings); the page must still work.
+const readStore = (key, fallback) => {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+};
+const writeStore = (key, value) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* settings last for this visit only */ }
+};
 
 const visualizationScenarios = {
   peacefulBeach: {
@@ -396,31 +384,18 @@ const AdvancedVisualization = () => {
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [totalTime, setTotalTime] = useState(0);
+  const [, setTotalTime] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
-  const [completedSessions, setCompletedSessions] = useState(() => {
-    const saved = JSON.parse(localStorage.getItem('visualization-completed-sessions') || '0');
-    return saved;
-  });
+  const [completedSessions, setCompletedSessions] = useState(() => readStore('visualization-completed-sessions', 0));
   const [isCompleted, setIsCompleted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPersonalSettings, setShowPersonalSettings] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('visualization-dark-mode');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [immersiveMode, setImmersiveMode] = useState(true);
-  const [showVisualCues, setShowVisualCues] = useState(true);
-  const [ambientSoundEnabled, setAmbientSoundEnabled] = useState(true);
   const [newTrigger, setNewTrigger] = useState('');
   
   // Personal Settings State
-  const [personalSettings, setPersonalSettings] = useState(() => {
-    const saved = localStorage.getItem('visualization-personal-settings');
-    return saved ? JSON.parse(saved) : defaultPersonalSettings;
-  });
+  const [personalSettings, setPersonalSettings] = useState(() => ({ ...defaultPersonalSettings, ...readStore('visualization-personal-settings', {}) }));
 
   const timerRef = useRef(null);
   const sessionTimerRef = useRef(null);
@@ -432,15 +407,11 @@ const AdvancedVisualization = () => {
 
   // Save states to localStorage
   useEffect(() => {
-    localStorage.setItem('visualization-personal-settings', JSON.stringify(personalSettings));
+    writeStore('visualization-personal-settings', personalSettings);
   }, [personalSettings]);
 
   useEffect(() => {
-    localStorage.setItem('visualization-dark-mode', JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
-
-  useEffect(() => {
-    localStorage.setItem('visualization-completed-sessions', JSON.stringify(completedSessions));
+    writeStore('visualization-completed-sessions', completedSessions);
   }, [completedSessions]);
 
   // Check for triggers before starting
@@ -479,35 +450,16 @@ const AdvancedVisualization = () => {
     if (!voiceEnabled || isPaused) return;
     
     if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = personalSettings.voicePreferences.speed;
-      utterance.pitch = 0.9;
-      utterance.volume = personalSettings.voiceVolume;
-      
-      const voices = window.speechSynthesis.getVoices();
-      let selectedVoice;
-      
-      if (personalSettings.voicePreferences.gender === 'female') {
-        selectedVoice = voices.find(voice => 
-          voice.name.toLowerCase().includes('female') ||
-          voice.name.toLowerCase().includes('samantha') ||
-          voice.name.toLowerCase().includes('karen') ||
-          voice.name.toLowerCase().includes('zira')
-        );
-      } else if (personalSettings.voicePreferences.gender === 'male') {
-        selectedVoice = voices.find(voice => 
-          voice.name.toLowerCase().includes('male') ||
-          voice.name.toLowerCase().includes('daniel') ||
-          voice.name.toLowerCase().includes('alex') ||
-          voice.name.toLowerCase().includes('david')
-        );
-      }
-      
-      if (selectedVoice) utterance.voice = selectedVoice;
-      
-      utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+      const male = personalSettings.voicePreferences.gender === 'male'
+        ? softVoices(window.speechSynthesis.getVoices(), { allowOnline: true })
+          .find((v) => /\b(male|daniel|alex|david|guy|ryan|george|arthur|thomas|oliver)\b/i.test(v.name) && !/female/i.test(v.name))
+        : null;
+      utteranceRef.current = speakSoftly(text, {
+        allowOnline: true,
+        voice: male || null,
+        rate: personalSettings.voicePreferences.speed * 0.95,
+        volume: personalSettings.voiceVolume,
+      });
     }
   }, [voiceEnabled, personalSettings.voicePreferences, personalSettings.voiceVolume, isPaused]);
 
@@ -670,835 +622,222 @@ const AdvancedVisualization = () => {
     return ((currentStep + 1) / currentScenario.steps.length) * 100;
   };
 
-  const getTimeProgress = () => {
-    if (totalTime === 0) return 0;
-    const steps = getAdjustedSteps();
-    const remainingTime = timeRemaining + (steps.slice(currentStep + 1).reduce((acc, step) => acc + step.duration, 0));
-    return ((totalTime - remainingTime) / totalTime) * 100;
+  const lengthLabel = (key) => {
+    const k = personalSettings.customDurations[key];
+    const sc = visualizationScenarios[key];
+    if (!k || k === 1) return sc.duration;
+    const words = { 0.5: 'half the usual length', 0.75: 'a quarter shorter', 1.25: 'a quarter longer', 1.5: 'half as long again' };
+    return `${sc.duration}, ${words[k] || 'custom length'}`;
   };
-
-  const bgClass = immersiveMode && isActive 
-    ? isDarkMode 
-      ? `min-h-screen bg-gradient-to-br ${currentScenario.darkBackground} transition-all duration-1000`
-      : `min-h-screen bg-gradient-to-br ${currentScenario.backgroundGradient} transition-all duration-1000`
-    : isDarkMode
-    ? "min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 transition-all duration-700"
-    : "min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 transition-all duration-700";
-
-  const cardClass = isDarkMode
-    ? "bg-gray-800/90 backdrop-blur-lg border border-gray-700/50 text-white"
-    : "bg-white/90 backdrop-blur-lg border border-white/50 text-gray-800";
+  const uk = (s) => s.replace(/Visualization/g, 'Visualisation').replace(/visualization/g, 'visualisation');
+  const round = 'flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink-900/30 bg-sheet text-ink-900 hover:border-ink-900 disabled:cursor-not-allowed disabled:opacity-30';
+  const blocked = hasTriggersForScenario(selectedScenario);
+  const steps = getAdjustedSteps();
+  // The sun moves across the painted sky as the steps go by.
+  const journey = isCompleted ? 1 : isActive ? Math.min(1, (currentStep + getStepProgress() / 100) / steps.length) : 0.12;
 
   return (
-    <div className={bgClass}>
-      <div className="p-4">
-        <div className="max-w-5xl mx-auto">
-          {/* Animated background elements */}
-          {immersiveMode && isActive && (
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute inset-0">
-                {selectedScenario === 'peacefulBeach' && (
-                  <>
-                    <div className="absolute bottom-0 left-0 w-full h-32 opacity-20">
-                      <div 
-                        className="w-full h-full bg-gradient-to-t from-blue-400/30 to-transparent"
-                        style={{
-                          animation: 'float 8s ease-in-out infinite'
-                        }}
-                      />
-                    </div>
-                    <div className="absolute top-1/4 right-1/4 w-32 h-32 rounded-full bg-yellow-300/20 animate-pulse" />
-                  </>
-                )}
-                {selectedScenario === 'enchantedForest' && (
-                  <div className="absolute inset-0">
-                    <div className="absolute bottom-0 left-0 w-full h-40 opacity-30">
-                      <div className="w-full h-full bg-gradient-to-t from-green-400/20 to-transparent" />
-                    </div>
-                    <div className="absolute top-1/3 left-1/4 w-24 h-24 rounded-full bg-green-300/15 animate-pulse" />
-                    <div className="absolute top-2/3 right-1/3 w-16 h-16 rounded-full bg-emerald-300/15 animate-pulse delay-1000" />
-                  </div>
-                )}
-                {selectedScenario === 'mountainRetreat' && (
-                  <div className="absolute inset-0">
-                    <div className="absolute bottom-0 left-0 w-full h-32 opacity-25">
-                      <div className="w-full h-full bg-gradient-to-t from-purple-400/20 to-transparent" />
-                    </div>
-                    <div className="absolute top-1/4 left-1/2 w-40 h-40 rounded-full bg-indigo-300/10 animate-pulse" />
-                  </div>
-                )}
-                {selectedScenario === 'healingGarden' && (
-                  <div className="absolute inset-0">
-                    <div className="absolute bottom-0 left-0 w-full h-36 opacity-25">
-                      <div className="w-full h-full bg-gradient-to-t from-pink-400/20 to-transparent" />
-                    </div>
-                    <div className="absolute top-1/4 right-1/4 w-28 h-28 rounded-full bg-rose-300/15 animate-pulse" />
-                    <div className="absolute top-2/3 left-1/4 w-20 h-20 rounded-full bg-pink-300/15 animate-pulse delay-500" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+    <TechniqueShell icon="visualization" color="lilac" note="Go somewhere calm" title="Visualisation"
+      backdrop={<PlaceScene place={selectedScenario} progress={journey} className="h-full w-full" />}
+      intro="A guided walk through a calm place in your imagination. Each step has a timer and can be read aloud. You can pause or stop whenever you like.">
 
-          {/* Header */}
-          <div className="text-center mb-8 relative z-10">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <Sparkles className={`w-8 h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
-              <h1 className={`text-4xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                Therapeutic Visualization
-              </h1>
-              <Sparkles className={`w-8 h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
-            </div>
-            <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} max-w-2xl mx-auto`}>
-              Immersive guided imagery journeys to heal your mind, body, and spirit
-            </p>
+      {!isActive && !isCompleted && (
+        <>
+          <h2 className="mb-4 text-2xl font-bold text-ink-900">Choose a place</h2>
+          <p className="-mt-2 mb-4 text-ink-800">The picture behind the page changes to match.</p>
+          <div className="grid gap-4 sm:grid-cols-2" role="radiogroup" aria-label="Places">
+            {getAvailableScenarios().map(([key, scenario]) => (
+              <button key={key} type="button" role="radio" aria-checked={selectedScenario === key}
+                onClick={() => setSelectedScenario(key)}
+                className={`glass overflow-hidden !border-2 p-0 text-left transition-all ${selectedScenario === key ? '!border-ink-900 shadow-xl' : 'hover:-translate-y-0.5'}`}>
+                <PlaceScene place={key} progress={0.35} still className="block h-28 w-full" />
+                <span className="block p-5 pt-4">
+                <span className="flex items-center gap-2 text-lg font-bold text-ink-900">
+                  <span className={selectedScenario === key ? 'highlight' : ''}>{uk(scenario.name)}</span>
+                  {personalSettings.favoriteScenarios.includes(key) && <Heart className="h-4 w-4 fill-rose-500 text-rose-500" aria-label="Favourite" />}
+                </span>
+                <span className="mt-1 block leading-relaxed text-ink-700">{scenario.description}</span>
+                <span className="mt-2 block text-sm text-ink-700">{lengthLabel(key)}, {scenario.steps.length} steps</span>
+                </span>
+              </button>
+            ))}
           </div>
 
-          {/* Top Controls */}
-          <div className="flex justify-between items-center mb-6 relative z-10">
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowPersonalSettings(!showPersonalSettings);
-                  setShowSettings(false);
-                }}
-                className={`p-3 rounded-xl ${cardClass} hover:shadow-lg transition-all flex items-center gap-2 ${showPersonalSettings ? 'ring-2 ring-blue-500' : ''}`}
-              >
-                <User className="w-5 h-5" />
-                <span className="hidden sm:inline">Personal</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowSettings(!showSettings);
-                  setShowPersonalSettings(false);
-                }}
-                className={`p-3 rounded-xl ${cardClass} hover:shadow-lg transition-all flex items-center gap-2 ${showSettings ? 'ring-2 ring-blue-500' : ''}`}
-              >
-                <Settings className="w-5 h-5" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-            </div>
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-3 rounded-xl ${cardClass} hover:shadow-lg transition-all`}
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {personalSettings.personalTriggers.length > 0 && (
+            <p className="mt-4 text-sm text-ink-700">
+              {Object.keys(visualizationScenarios).length - getAvailableScenarios().length} place(s) hidden because they mention: {personalSettings.personalTriggers.join(', ')}.
+            </p>
+          )}
+
+          {blocked && (
+            <p className="glass mt-4 border-l-4 !border-l-marigold-500 p-4 text-ink-800">
+              This place mentions something on your list ({currentScenario.triggers.filter(t => personalSettings.personalTriggers.includes(t)).join(', ')}). Please choose another one.
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <button type="button" onClick={startVisualization} disabled={blocked} className="btn-ink disabled:cursor-not-allowed disabled:opacity-40">
+              <Play className="h-5 w-5" aria-hidden="true" /> Start: {uk(currentScenario.name).toLowerCase()}
             </button>
+            <span className="text-sm text-ink-700">{lengthLabel(selectedScenario)}</span>
           </div>
+        </>
+      )}
 
-          {/* Personal Settings Panel */}
-          {showPersonalSettings && (
-            <div className={`${cardClass} rounded-xl p-6 mb-8 relative z-10`}>
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Personal Settings
-              </h3>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Favorite Scenarios */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Heart className="w-4 h-4" />
-                    Favorite Scenarios ({personalSettings.favoriteScenarios.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {personalSettings.favoriteScenarios.length === 0 ? (
-                      <p className="text-sm opacity-60">Complete sessions to build favorites</p>
-                    ) : (
-                      personalSettings.favoriteScenarios.map(scenario => (
-                        <div key={scenario} className={`flex items-center justify-between p-2 rounded-lg ${isDarkMode ? 'bg-pink-900/20' : 'bg-gradient-to-r from-pink-100 to-rose-100'}`}>
-                          <span className="flex items-center gap-2">
-                            <span>{visualizationScenarios[scenario]?.icon}</span>
-                            <span className="text-sm">{visualizationScenarios[scenario]?.name}</span>
-                          </span>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => setSelectedScenario(scenario)}
-                              className="text-xs px-2 py-1 bg-pink-500 text-white rounded hover:bg-pink-600 transition-colors"
-                            >
-                              Select
-                            </button>
-                            <button
-                              onClick={() => removeFavoriteScenario(scenario)}
-                              className="text-xs px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Personal Triggers */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Content Triggers to Avoid ({personalSettings.personalTriggers.length})
-                  </h4>
-                  <div className="space-y-2 mb-3">
-                    {personalSettings.personalTriggers.map(trigger => (
-                      <div key={trigger} className={`flex items-center justify-between p-2 rounded-lg ${isDarkMode ? 'bg-red-900/20' : 'bg-red-100'}`}>
-                        <span className="text-sm capitalize">{trigger}</span>
-                        <button
-                          onClick={() => removePersonalTrigger(trigger)}
-                          className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Add trigger (e.g., water, heights)"
-                      value={newTrigger}
-                      onChange={(e) => setNewTrigger(e.target.value)}
-                      className={`flex-1 p-2 text-sm rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          addPersonalTrigger();
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={addPersonalTrigger}
-                      className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs opacity-60 mt-2">Scenarios with these triggers will be hidden</p>
-                </div>
-
-                {/* Custom Durations */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Custom Session Lengths
-                  </h4>
-                  <div className="space-y-3">
-                    {Object.entries(visualizationScenarios).map(([key, scenario]) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm flex items-center gap-2">
-                          <span>{scenario.icon}</span>
-                          <span className="truncate">{scenario.name}</span>
-                        </span>
-                        <select
-                          value={personalSettings.customDurations[key] || 1}
-                          onChange={(e) => updatePersonalSettings({
-                            customDurations: {
-                              ...personalSettings.customDurations,
-                              [key]: parseFloat(e.target.value)
-                            }
-                          })}
-                          className={`text-xs p-1 rounded border min-w-[100px] ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                        >
-                          <option value={0.5}>50% Shorter</option>
-                          <option value={0.75}>25% Shorter</option>
-                          <option value={1}>Standard</option>
-                          <option value={1.25}>25% Longer</option>
-                          <option value={1.5}>50% Longer</option>
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Voice & Audio Preferences */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Volume2 className="w-4 h-4" />
-                    Voice & Audio
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm mb-1">Voice Gender</label>
-                      <select
-                        value={personalSettings.voicePreferences.gender}
-                        onChange={(e) => updatePersonalSettings({
-                          voicePreferences: {
-                            ...personalSettings.voicePreferences,
-                            gender: e.target.value
-                          }
-                        })}
-                        className={`w-full p-2 text-sm rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                      >
-                        <option value="any">Any</option>
-                        <option value="female">Female</option>
-                        <option value="male">Male</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm mb-1">Voice Speed: {personalSettings.voicePreferences.speed}x</label>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="1.5"
-                        step="0.1"
-                        value={personalSettings.voicePreferences.speed}
-                        onChange={(e) => updatePersonalSettings({
-                          voicePreferences: {
-                            ...personalSettings.voicePreferences,
-                            speed: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm mb-1">Voice Volume: {Math.round(personalSettings.voiceVolume * 100)}%</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={personalSettings.voiceVolume}
-                        onChange={(e) => updatePersonalSettings({
-                          voiceVolume: parseFloat(e.target.value)
-                        })}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm mb-1">Ambient Sound Volume: {Math.round(personalSettings.ambientVolume * 100)}%</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={personalSettings.ambientVolume}
-                        onChange={(e) => updatePersonalSettings({
-                          ambientVolume: parseFloat(e.target.value)
-                        })}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reminder Schedule */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Bell className="w-4 h-4" />
-                    Practice Reminders
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm mb-1">Frequency</label>
-                      <select
-                        value={personalSettings.reminderSchedule.frequency}
-                        onChange={(e) => updatePersonalSettings({
-                          reminderSchedule: {
-                            ...personalSettings.reminderSchedule,
-                            frequency: e.target.value
-                          }
-                        })}
-                        className={`w-full p-2 text-sm rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                      >
-                        <option value="none">No Reminders</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="custom">Custom</option>
-                      </select>
-                    </div>
-                    
-                    {personalSettings.reminderSchedule.frequency !== 'none' && (
-                      <div>
-                        <label className="block text-sm mb-1">Preferred Time</label>
-                        <input
-                          type="time"
-                          value={personalSettings.reminderSchedule.times[0] || ''}
-                          onChange={(e) => updatePersonalSettings({
-                            reminderSchedule: {
-                              ...personalSettings.reminderSchedule,
-                              times: [e.target.value]
-                            }
-                          })}
-                          className={`w-full p-2 text-sm rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Session Stats */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Your Journey Stats
-                  </h4>
-                  <div className="space-y-2">
-                    <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}>
-                      <div className="text-lg font-bold text-blue-600">{completedSessions}</div>
-                      <div className="text-sm opacity-75">Total Sessions Completed</div>
-                    </div>
-                    <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
-                      <div className="text-lg font-bold text-green-600">{personalSettings.favoriteScenarios.length}</div>
-                      <div className="text-sm opacity-75">Favorite Scenarios</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Settings Panel */}
-          {showSettings && (
-            <div className={`${cardClass} rounded-xl p-6 mb-8 relative z-10`}>
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Session Settings
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Volume2 className="w-4 h-4" />
-                      Voice Guidance
-                    </span>
-                    <button
-                      onClick={() => setVoiceEnabled(!voiceEnabled)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${voiceEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${voiceEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </label>
-
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Volume2 className="w-4 h-4" />
-                      Ambient Sounds
-                    </span>
-                    <button
-                      onClick={() => setAmbientSoundEnabled(!ambientSoundEnabled)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${ambientSoundEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${ambientSoundEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </label>
-
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <ChevronRight className="w-4 h-4" />
-                      Auto Advance Steps
-                    </span>
-                    <button
-                      onClick={() => setAutoAdvance(!autoAdvance)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoAdvance ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoAdvance ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </label>
-                </div>
-                
-                <div className="space-y-4">
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Eye className="w-4 h-4" />
-                      Immersive Background
-                    </span>
-                    <button
-                      onClick={() => setImmersiveMode(!immersiveMode)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${immersiveMode ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${immersiveMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </label>
-
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Visual Cues
-                    </span>
-                    <button
-                      onClick={() => setShowVisualCues(!showVisualCues)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showVisualCues ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showVisualCues ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </label>
-
-                  <div className="pt-2">
-                    <p className="text-sm opacity-75 mb-2">Quick Actions</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setVoiceEnabled(true);
-                          setAmbientSoundEnabled(true);
-                          setAutoAdvance(true);
-                          setImmersiveMode(true);
-                          setShowVisualCues(true);
-                        }}
-                        className="text-xs px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                      >
-                        Enable All
-                      </button>
-                      <button
-                        onClick={() => {
-                          setVoiceEnabled(false);
-                          setAmbientSoundEnabled(false);
-                          setAutoAdvance(false);
-                          setImmersiveMode(false);
-                          setShowVisualCues(false);
-                        }}
-                        className="text-xs px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                      >
-                        Disable All
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Session Stats */}
-          {(isActive || isCompleted) && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 relative z-10">
-              <div className={`${cardClass} rounded-xl p-4 text-center`}>
-                <Clock className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-                <div className="text-lg font-bold">{formatTime(sessionTime)}</div>
-                <div className="text-sm opacity-75">Journey Time</div>
-              </div>
-              <div className={`${cardClass} rounded-xl p-4 text-center`}>
-                <div className="text-lg font-bold">{Math.round(getStepProgress())}%</div>
-                <div className="text-sm opacity-75">Progress</div>
-              </div>
-              <div className={`${cardClass} rounded-xl p-4 text-center`}>
-                <div className="text-2xl mb-1">{currentStepData?.visualCue}</div>
-                <div className="text-sm opacity-75 capitalize">{currentStepData?.scene}</div>
-              </div>
-              <div className={`${cardClass} rounded-xl p-4 text-center`}>
-                <CheckCircle className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                <div className="text-lg font-bold">{completedSessions}</div>
-                <div className="text-sm opacity-75">Total Sessions</div>
-              </div>
-            </div>
-          )}
-
-          {/* Scenario Selection */}
-          {!isActive && !isCompleted && (
-            <div className="relative z-10">
-              {/* Available Scenarios */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {getAvailableScenarios().map(([key, scenario]) => (
-                  <div
-                    key={key}
-                    onClick={() => setSelectedScenario(key)}
-                    className={`${cardClass} rounded-xl p-6 cursor-pointer transition-all hover:shadow-xl transform hover:scale-105 ${
-                      selectedScenario === key ? 'ring-2 ring-blue-500 shadow-xl' : ''
-                    }`}
-                  >
-                    <div className="text-center">
-                      <div className="text-4xl mb-3">{scenario.icon}</div>
-                      <h3 className="font-bold text-lg mb-2">{scenario.name}</h3>
-                      <p className="text-sm opacity-80 mb-3">{scenario.description}</p>
-                      <div className={`inline-block px-3 py-1 rounded-full text-xs bg-gradient-to-r ${scenario.color} text-white mb-2`}>
-                        {personalSettings.customDurations[key] ? 
-                          `${scenario.duration} (${personalSettings.customDurations[key] === 0.5 ? '50% shorter' : 
-                          personalSettings.customDurations[key] === 0.75 ? '25% shorter' :
-                          personalSettings.customDurations[key] === 1.25 ? '25% longer' :
-                          personalSettings.customDurations[key] === 1.5 ? '50% longer' : 'custom'})` 
-                          : scenario.duration}
-                      </div>
-                      {personalSettings.favoriteScenarios.includes(key) && (
-                        <div className="flex justify-center mt-2">
-                          <Heart className="w-4 h-4 text-red-500 fill-current" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Show hidden scenarios info */}
-              {personalSettings.personalTriggers.length > 0 && (
-                <div className={`${cardClass} rounded-lg p-4 mb-6`}>
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                    <span className="font-semibold">Content Filter Active</span>
-                  </div>
-                  <p className="text-sm text-center opacity-75">
-                    {Object.keys(visualizationScenarios).length - getAvailableScenarios().length} scenario(s) hidden based on your trigger preferences: {personalSettings.personalTriggers.join(', ')}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Main Control Panel */}
-          <div className={`${cardClass} rounded-2xl p-8 relative z-10`}>
-            {!isActive && !isCompleted ? (
-              // Start Screen
-              <div className="text-center">
-                <div className="text-6xl mb-4">{currentScenario.icon}</div>
-                <h2 className="text-3xl font-bold mb-4">{currentScenario.name}</h2>
-                <p className="text-lg opacity-80 mb-6 max-w-2xl mx-auto">
-                  {currentScenario.description}
-                </p>
-                <div className="flex flex-wrap justify-center gap-4 mb-8">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 opacity-60" />
-                    <span>{personalSettings.customDurations[selectedScenario] ? 
-                      `${currentScenario.duration} (${personalSettings.customDurations[selectedScenario] === 0.5 ? '50% shorter' : 
-                      personalSettings.customDurations[selectedScenario] === 0.75 ? '25% shorter' :
-                      personalSettings.customDurations[selectedScenario] === 1.25 ? '25% longer' :
-                      personalSettings.customDurations[selectedScenario] === 1.5 ? '50% longer' : 'custom'})` 
-                      : currentScenario.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="w-5 h-5 opacity-60" />
-                    <span>{currentScenario.ambientSound}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 opacity-60" />
-                    <span>{currentScenario.steps.length} steps</span>
-                  </div>
-                </div>
-                
-                {hasTriggersForScenario(selectedScenario) && (
-                  <div className={`${isDarkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-100 border-yellow-300'} border rounded-lg p-4 mb-6`}>
-                    <div className="flex items-center justify-center gap-2 text-yellow-700 dark:text-yellow-300">
-                      <AlertTriangle className="w-5 h-5" />
-                      <span className="font-semibold">Content Warning</span>
-                    </div>
-                    <p className="text-sm mt-2 text-yellow-600 dark:text-yellow-400 text-center">
-                      This scenario contains content that matches your personal triggers: {currentScenario.triggers.filter(t => personalSettings.personalTriggers.includes(t)).join(', ')}. Consider choosing a different journey.
-                    </p>
-                  </div>
-                )}
-                
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={startVisualization}
-                    disabled={hasTriggersForScenario(selectedScenario)}
-                    className={`${hasTriggersForScenario(selectedScenario) 
-                      ? 'bg-gray-400 cursor-not-allowed opacity-50' 
-                      : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg transform hover:scale-105'
-                    } text-white px-8 py-4 rounded-xl font-semibold flex items-center gap-2 transition-all`}
-                  >
-                    <Play className="w-5 h-5" />
-                    Begin Journey
-                  </button>
-                </div>
-              </div>
-            ) : isCompleted ? (
-              // Completion Screen
-              <div className="text-center">
-                <div className="text-6xl mb-4">🌟</div>
-                <h2 className="text-3xl font-bold mb-4">Journey Complete</h2>
-                <p className="text-lg opacity-80 mb-6">
-                  You have successfully completed your {currentScenario.name.toLowerCase()} visualization.
-                  Take a moment to appreciate the peace and healing you've received.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}>
-                    <div className="text-2xl font-bold text-blue-600">{formatTime(sessionTime)}</div>
-                    <div className="text-sm opacity-75">Total Time</div>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
-                    <div className="text-2xl font-bold text-green-600">{currentScenario.steps.length}</div>
-                    <div className="text-sm opacity-75">Steps</div>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'}`}>
-                    <div className="text-2xl font-bold text-purple-600">100%</div>
-                    <div className="text-sm opacity-75">Complete</div>
-                  </div>
-                  <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-rose-900/30' : 'bg-rose-100'}`}>
-                    <div className="text-2xl font-bold text-rose-600">{completedSessions}</div>
-                    <div className="text-sm opacity-75">Total Sessions</div>
-                  </div>
-                </div>
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={startVisualization}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all"
-                  >
-                    <Play className="w-5 h-5" />
-                    Journey Again
-                  </button>
-                  <button
-                    onClick={resetSession}
-                    className={`${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-6 py-3 rounded-xl font-semibold transition-all`}
-                  >
-                    Choose New Journey
-                  </button>
-                </div>
-              </div>
-            ) : (
-              // Active Session
-              <div>
-                {/* Progress Bar */}
-                <div className="mb-6">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Step {currentStep + 1} of {currentScenario.steps.length}</span>
-                    <span>{formatTime(timeRemaining)} remaining</span>
-                  </div>
-                  <div className={`w-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-2 mb-2`}>
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${getStepProgress()}%` }}
-                    />
-                  </div>
-                  <div className={`w-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-1`}>
-                    <div 
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 h-1 rounded-full transition-all duration-1000"
-                      style={{ width: `${getTimeProgress()}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Current Step Display */}
-                <div className="text-center mb-8">
-                  {showVisualCues && (
-                    <div className="text-8xl mb-4 animate-pulse">{currentStepData.visualCue}</div>
-                  )}
-                  <h3 className="text-2xl font-bold mb-4 capitalize">{currentStepData.scene}</h3>
-                  <div className={`max-w-3xl mx-auto p-6 rounded-xl ${isDarkMode ? 'bg-gray-700/50' : 'bg-blue-50'} mb-6`}>
-                    <p className="text-lg leading-relaxed mb-4">{currentStepData.instruction}</p>
-                    <p className="text-base opacity-80 italic">{currentStepData.guidance}</p>
-                  </div>
-                  <div className="text-3xl font-bold mb-2">{formatTime(timeRemaining)}</div>
-                  <div className="text-sm opacity-75">Time remaining for this step</div>
-                </div>
-
-                {/* Controls */}
-                <div className="flex justify-center items-center gap-4 flex-wrap">
-                  <button
-                    onClick={handlePrevStep}
-                    disabled={currentStep === 0}
-                    className={`p-3 rounded-xl ${currentStep === 0 ? 'opacity-50 cursor-not-allowed' : `${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`} transition-all`}
-                    title="Previous Step"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={pauseResume}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl hover:shadow-lg transform hover:scale-105 transition-all"
-                    title={isPaused ? "Resume" : "Pause"}
-                  >
-                    {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
-                  </button>
-                  
-                  <button
-                    onClick={handleNextStep}
-                    disabled={currentStep === currentScenario.steps.length - 1}
-                    className={`p-3 rounded-xl ${currentStep === currentScenario.steps.length - 1 ? 'opacity-50 cursor-not-allowed' : `${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`} transition-all`}
-                    title="Next Step"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={resetSession}
-                    className={`p-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 transition-all`}
-                    title="Reset Session"
-                  >
-                    <RotateCcw className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={() => setVoiceEnabled(!voiceEnabled)}
-                    className={`p-3 rounded-xl transition-all ${voiceEnabled ? `${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'} text-green-600` : `${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} text-gray-500`}`}
-                    title={voiceEnabled ? "Disable Voice" : "Enable Voice"}
-                  >
-                    {voiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                  </button>
-
-                  <button
-                    onClick={() => setAmbientSoundEnabled(!ambientSoundEnabled)}
-                    className={`p-3 rounded-xl transition-all ${ambientSoundEnabled ? `${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'} text-blue-600` : `${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} text-gray-500`}`}
-                    title={ambientSoundEnabled ? "Disable Ambient Sound" : "Enable Ambient Sound"}
-                  >
-                    {ambientSoundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                  </button>
-                </div>
-
-                {isPaused && (
-                  <div className="text-center mt-6">
-                    <div className={`inline-block px-4 py-2 rounded-lg ${isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-100'} text-yellow-700 dark:text-yellow-300`}>
-                      <span className="text-sm">Session Paused - Click play to continue your journey</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="text-center mt-8 relative z-10">
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Find a comfortable position, close your eyes, and let your journey begin.
+      {isActive && (
+        <section className="glass p-6 sm:p-8" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="margin-note text-[1.5rem] leading-[32px]">
+              {uk(currentScenario.name)}: step {currentStep + 1} of {steps.length}, {currentStepData.scene}
             </p>
-            {personalSettings.favoriteScenarios.length > 0 && (
-              <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                You have {personalSettings.favoriteScenarios.length} favorite scenario{personalSettings.favoriteScenarios.length !== 1 ? 's' : ''}
-              </p>
-            )}
-            {completedSessions > 0 && (
-              <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Total sessions completed: {completedSessions}
-              </p>
-            )}
+            <p className="text-sm font-bold leading-[32px] text-ink-800">{isPaused ? 'Paused' : `${formatTime(timeRemaining)} left in this step`}</p>
           </div>
-        </div>
+          <div className="mb-6 mt-2 h-1.5 overflow-hidden rounded bg-white/60" aria-hidden="true">
+            <div className="h-1 bg-lilac-500 transition-all duration-500" style={{ width: `${getStepProgress()}%` }} />
+          </div>
+          <p className="text-2xl font-bold leading-snug text-ink-900">{currentStepData.instruction}</p>
+          <p className="my-6 font-handwritten text-[1.7rem] leading-snug text-ink-800">{currentStepData.guidance}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={handlePrevStep} disabled={currentStep === 0} className={round} aria-label="Previous step">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={pauseResume} className="btn-ink !px-5 !py-2">
+              {isPaused ? <Play className="h-5 w-5" aria-hidden="true" /> : <Pause className="h-5 w-5" aria-hidden="true" />}
+              {isPaused ? 'Carry on' : 'Pause'}
+            </button>
+            <button type="button" onClick={handleNextStep} className={round} aria-label="Next step">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={() => setVoiceEnabled(!voiceEnabled)} className={round} aria-pressed={voiceEnabled}
+              aria-label={voiceEnabled ? 'Stop reading aloud' : 'Read the steps aloud'}>
+              {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+            </button>
+            <button type="button" onClick={resetSession} className="text-sm font-bold text-ink-700 underline underline-offset-4">Stop</button>
+          </div>
+          <p className="mt-[32px] text-sm leading-[32px] text-ink-700">Time so far: {formatTime(sessionTime)}</p>
+        </section>
+      )}
+
+      {isCompleted && (
+        <section className="glass p-6 sm:p-8">
+          <h2 className="text-2xl font-bold leading-[64px] text-ink-900">Back from {uk(currentScenario.name).toLowerCase()}</h2>
+          <p className="mb-[32px] leading-[32px] text-ink-800">
+            That was {steps.length} steps in {formatTime(sessionTime)}. Take a moment before you get up. However you feel now is fine.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={startVisualization} className="btn-ink">Go again</button>
+            <button type="button" onClick={resetSession} className="btn-outline">Choose another place</button>
+          </div>
+          <p className="mt-[32px] text-sm leading-[32px] text-ink-700">Visits finished on this device: {completedSessions}</p>
+        </section>
+      )}
+
+      <div className="mt-8 flex flex-wrap gap-5">
+        <button type="button" onClick={() => { setShowSettings(!showSettings); setShowPersonalSettings(false); }} aria-expanded={showSettings}
+          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          <Settings className="h-4 w-4" aria-hidden="true" /> Voice and timing
+        </button>
+        <button type="button" onClick={() => { setShowPersonalSettings(!showPersonalSettings); setShowSettings(false); }} aria-expanded={showPersonalSettings}
+          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          <User className="h-4 w-4" aria-hidden="true" /> Things to avoid and favourites
+        </button>
       </div>
 
-      {/* CSS Animations */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-        @keyframes sway {
-          0% { transform: translateX(0px) rotate(0deg); }
-          100% { transform: translateX(10px) rotate(2deg); }
-        }
-        
-        /* Custom scrollbar for dark mode */
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: ${isDarkMode ? '#374151' : '#f1f5f9'};
-          border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: ${isDarkMode ? '#6b7280' : '#cbd5e1'};
-          border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: ${isDarkMode ? '#9ca3af' : '#94a3b8'};
-        }
+      {showSettings && (
+        <section className="glass mt-3 grid gap-6 p-6 sm:grid-cols-2">
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 font-bold text-ink-900">
+              <input type="checkbox" checked={voiceEnabled} onChange={(e) => setVoiceEnabled(e.target.checked)} className="h-4 w-4 accent-ink-900" />
+              Read the steps aloud
+            </label>
+            <label className="block text-sm text-ink-800">Voice
+              <select value={personalSettings.voicePreferences.gender}
+                onChange={(e) => updatePersonalSettings({ voicePreferences: { ...personalSettings.voicePreferences, gender: e.target.value } })}
+                className="mt-1 w-full rounded-lg border-2 border-ink-900/30 bg-sheet p-2">
+                <option value="any">Any</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </label>
+            <label className="block text-sm text-ink-800">Speed: {personalSettings.voicePreferences.speed}×
+              <input type="range" min="0.5" max="1.2" step="0.1" value={personalSettings.voicePreferences.speed}
+                onChange={(e) => updatePersonalSettings({ voicePreferences: { ...personalSettings.voicePreferences, speed: parseFloat(e.target.value) } })}
+                className="mt-1 w-full accent-ink-900" />
+            </label>
+            <label className="block text-sm text-ink-800">Volume: {Math.round(personalSettings.voiceVolume * 100)}%
+              <input type="range" min="0.1" max="1" step="0.1" value={personalSettings.voiceVolume}
+                onChange={(e) => updatePersonalSettings({ voiceVolume: parseFloat(e.target.value) })}
+                className="mt-1 w-full accent-ink-900" />
+            </label>
+          </div>
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 font-bold text-ink-900">
+              <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} className="h-4 w-4 accent-ink-900" />
+              Move on when the timer ends
+            </label>
+            <p className="text-sm font-bold text-ink-900">Length of each place</p>
+            {Object.entries(visualizationScenarios).map(([key, sc]) => (
+              <label key={key} className="flex items-center justify-between gap-3 text-sm text-ink-800">
+                {uk(sc.name)}
+                <select value={personalSettings.customDurations[key] || 1}
+                  onChange={(e) => updatePersonalSettings({ customDurations: { ...personalSettings.customDurations, [key]: parseFloat(e.target.value) } })}
+                  className="rounded-lg border-2 border-ink-900/30 bg-sheet p-1">
+                  <option value={0.5}>Half</option>
+                  <option value={0.75}>Shorter</option>
+                  <option value={1}>Usual</option>
+                  <option value={1.25}>Longer</option>
+                  <option value={1.5}>Much longer</option>
+                </select>
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
 
-        /* Smooth transitions for all interactive elements */
-        button {
-          transition: all 0.2s ease-in-out;
-        }
-        
-        /* Enhanced focus states for accessibility */
-        button:focus-visible {
-          outline: 2px solid #3b82f6;
-          outline-offset: 2px;
-        }
-        
-        input:focus-visible,
-        select:focus-visible {
-          outline: 2px solid #3b82f6;
-          outline-offset: 2px;
-        }
-      `}</style>
-    </div>
+      {showPersonalSettings && (
+        <section className="glass mt-3 grid gap-6 p-6 sm:grid-cols-2">
+          <div>
+            <h3 className="font-bold text-ink-900">Things to avoid</h3>
+            <p className="mt-1 text-sm text-ink-700">Places that mention these words are hidden. Saved in this browser only.</p>
+            <div className="mt-3 flex gap-2">
+              <label htmlFor="new-trigger" className="sr-only">Word to avoid</label>
+              <input id="new-trigger" type="text" value={newTrigger} onChange={(e) => setNewTrigger(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addPersonalTrigger(); }}
+                placeholder="for example, water" className="min-w-0 flex-1 rounded-lg border-2 border-ink-900/30 bg-sheet p-2" />
+              <button type="button" onClick={addPersonalTrigger} className="btn-outline !px-3 !py-2" aria-label="Add word to avoid">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {personalSettings.personalTriggers.map((t) => (
+                <li key={t} className="flex items-center gap-1 rounded-full border-2 border-ink-900/20 px-3 py-1 text-sm text-ink-800">
+                  {t}
+                  <button type="button" onClick={() => removePersonalTrigger(t)} aria-label={`Stop avoiding ${t}`}><X className="h-3.5 w-3.5" /></button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-ink-900">Favourites</h3>
+            <p className="mt-1 text-sm text-ink-700">A place becomes a favourite when you finish it.</p>
+            {personalSettings.favoriteScenarios.length === 0 ? (
+              <p className="mt-3 text-sm text-ink-700">None yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {personalSettings.favoriteScenarios.map((key) => (
+                  <li key={key} className="flex items-center justify-between gap-2 text-ink-800">
+                    <button type="button" className="text-left underline underline-offset-4" onClick={() => setSelectedScenario(key)}>
+                      {uk(visualizationScenarios[key]?.name || key)}
+                    </button>
+                    <button type="button" onClick={() => removeFavoriteScenario(key)} aria-label="Remove from favourites"><X className="h-4 w-4" /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
+    </TechniqueShell>
   );
 };
 

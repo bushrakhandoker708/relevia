@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relevia – paper journal – coping techniques</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#EEF0E9; --sheet:#F8F9F4; --rule:#C9D3DE; --ink:#23324A; --ink-2:#4F5D73;
+    --sage:#5F7F68; --marigold:#F2C14E; --margin:#E3A7A1; --sky:#7FA3C6; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:18px/1.6 'Atkinson Hyperlegible', system-ui, sans-serif; }
+  a { color: inherit; }
+  :focus-visible { outline:3px solid var(--marigold); outline-offset:3px; border-radius:4px; }
+  header { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; padding:28px 32px; }
+  .brand { font:700 40px/1 'Caveat', cursive; text-decoration:none; }
+  nav { display:flex; gap:30px; font-size:17px; }
+  nav a { text-decoration:none; }
+  nav a[aria-current] { background:linear-gradient(transparent 62%, rgba(242,193,78,.75) 62% 92%, transparent 92%); }
+
+  main { max-width:1200px; margin:0 auto; padding:8px 32px 64px; display:grid; grid-template-columns:330px 1fr; gap:44px; align-items:start; }
+  h1 { font-size:44px; line-height:1.1; margin:12px 0 10px; letter-spacing:-.3px; }
+  .sub { color:var(--ink-2); margin:0 0 26px; max-width:30ch; }
+
+  /* index of techniques, like the contents page of a notebook */
+  .index { list-style:none; margin:0; padding:0; border-top:2px solid var(--rule); }
+  .index li { border-bottom:2px solid var(--rule); }
+  .index a { display:flex; align-items:center; gap:14px; padding:12px 6px; text-decoration:none; }
+  .index svg { flex:none; }
+  .index .when { margin-left:auto; font:500 21px 'Caveat', cursive; color:var(--ink-2); white-space:nowrap; }
+  .index a[aria-current] { background:linear-gradient(transparent 0, rgba(242,193,78,.45) 0); border-radius:6px; }
+
+  /* the open page */
+  .page { background:var(--sheet); border-radius:6px 14px 14px 6px; position:relative; padding:34px 44px 38px 84px;
+    box-shadow:0 1px 0 #d9ddd2, 0 18px 40px -22px rgba(35,50,74,.45); }
+  .page::before { content:''; position:absolute; left:58px; top:0; bottom:0; width:2px; background:var(--margin); }
+  .tape { position:absolute; top:-14px; right:60px; width:110px; height:30px; background:rgba(242,193,78,.55); transform:rotate(3deg); }
+  .page h2 { font-size:34px; margin:0 0 4px; }
+  .meta { font:500 24px 'Caveat', cursive; color:var(--sage); margin:0 0 18px; }
+  .page-grid { display:grid; grid-template-columns:1fr 260px; gap:36px; align-items:center; }
+  ol { margin:0; padding-left:1.2em; }
+  ol li { padding:6px 0 6px 6px; }
+  ol li::marker { font:700 26px 'Caveat', cursive; color:var(--sage); }
+  .guide { text-align:center; }
+  .guide p { font:500 24px 'Caveat', cursive; color:var(--ink-2); margin:8px 0 0; }
+  .start { margin-top:26px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .btn { font:700 17px 'Atkinson Hyperlegible', sans-serif; padding:14px 22px; border-radius:10px; border:2px solid var(--ink); background:var(--ink); color:var(--sheet); text-decoration:none; }
+  .aside { color:var(--ink-2); font-size:16px; }
+  .margin-note { position:absolute; left:8px; top:120px; width:44px; font:500 20px/1 'Caveat', cursive; color:var(--sage); transform:rotate(-90deg); transform-origin:left top; white-space:nowrap; top:300px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .breath { animation: breathe 12s ease-in-out infinite; transform-origin: 130px 130px; }
+    @keyframes breathe { 0%,100% { transform: scale(.72); } 33%,66% { transform: scale(1); } }
+  }
+  @media (max-width: 900px) {
+    header { padding:18px 16px; flex-wrap:wrap; gap:10px; } nav { gap:16px; font-size:15px; flex-wrap:wrap; }
+    main { grid-template-columns:1fr; padding:8px 16px 48px; }
+    .page { padding:28px 20px 28px 40px; } .page::before { left:24px; } .margin-note { display:none; }
+    .page-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="#">Relevia</a>
+  <nav aria-label="Main">
+    <a href="#">Talk</a><a href="#">What is it actually?</a><a href="#" aria-current="page">Coping techniques</a><a href="#">Medication</a><a href="#">Contact</a>
+  </nav>
+</header>
+<main>
+  <section>
+    <h1>Things to try when it's a lot</h1>
+    <p class="sub">Small exercises you can do anywhere. Pick whichever fits how much energy you have.</p>
+    <ul class="index">
+      <li><a href="#" aria-current="true">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><circle cx="17" cy="17" r="12"/><circle cx="17" cy="17" r="6" stroke="#5F7F68"/></svg>
+        Breathing in fours <span class="when">2 min</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><path d="M4 17 c6 -9 20 -9 26 0 c-6 9 -20 9 -26 0z"/><circle cx="17" cy="17" r="4" stroke="#5F7F68"/></svg>
+        5-4-3-2-1 grounding <span class="when">3 min</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><path d="M10 30 v-12 M14 30 v-18 M18 30 v-20 M22 30 v-17 M26 30 v-10" /><path d="M8 30 h20" stroke="#5F7F68"/></svg>
+        Tense and release <span class="when">8 min</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><path d="M4 26 l9 -10 l7 7 l4 -4 l6 7" /><circle cx="24" cy="10" r="3" stroke="#5F7F68"/></svg>
+        A calm place <span class="when">5 min</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><path d="M8 6 h18 v22 h-18z"/><path d="M12 12 h10 M12 17 h10 M12 22 h6" stroke="#5F7F68"/></svg>
+        Writing it out <span class="when">any time</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><circle cx="20" cy="7" r="3"/><path d="M19 11 l-4 9 l5 4 l-2 7 M15 20 l-6 2 M17 14 l6 3" stroke="#5F7F68"/></svg>
+        A short walk <span class="when">10 min</span></a></li>
+      <li><a href="#"><svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#23324A" stroke-width="2" stroke-linecap="round"><path d="M6 10 h22 M6 17 h16 M6 24 h19"/><path d="M28 22 l2 2 l4 -5" stroke="#5F7F68"/></svg>
+        Kind sentences <span class="when">1 min</span></a></li>
+    </ul>
+  </section>
+
+  <article class="page" aria-labelledby="t">
+    <span class="tape" aria-hidden="true"></span>
+    <span class="margin-note" aria-hidden="true">for when your chest feels tight</span>
+    <h2 id="t">Breathing in fours</h2>
+    <p class="meta">About two minutes. Sitting or lying down.</p>
+    <div class="page-grid">
+      <ol>
+        <li>Breathe in through your nose for a count of four.</li>
+        <li>Hold gently for four. Don't force it.</li>
+        <li>Breathe out slowly for four.</li>
+        <li>Repeat four or five times, then notice how your shoulders feel.</li>
+      </ol>
+      <div class="guide" aria-hidden="true">
+        <svg width="260" height="260" viewBox="0 0 260 260" fill="none" stroke-linecap="round">
+          <circle cx="130" cy="130" r="112" stroke="#C9D3DE" stroke-width="2" stroke-dasharray="3 9"/>
+          <g class="breath"><path d="M130 30 C 192 28, 232 76, 230 132 C 228 190, 186 232, 128 230 C 70 228, 28 186, 30 128 C 32 72, 74 32, 134 32" stroke="#5F7F68" stroke-width="3"/>
+            <path d="M130 52 C 178 50, 210 88, 208 132 C 206 176, 172 208, 128 208" stroke="#7FA3C6" stroke-width="2"/></g>
+        </svg>
+        <p>follow the circle</p>
+      </div>
+    </div>
+    <div class="start">
+      <a class="btn" href="#">Start the guided version</a>
+      <span class="aside">If breathing exercises make you feel worse, stop and try grounding instead.</span>
+    </div>
+  </article>
+</main>
+</body>
+</html>

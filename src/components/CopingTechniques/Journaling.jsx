@@ -11,6 +11,25 @@ import {
   ChevronDown, ChevronRight, Monitor, Smartphone, Tablet,
   Upload, Image, Link, Hash, Bookmark, Globe, Layers
 } from 'lucide-react';
+import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion';
+import TechniqueShell from './TechniqueShell';
+
+// Journaling's own look: blue ink washed across the top of the desk, and a warm lamp that
+// glows brighter while the page is being written on.
+const InkDesk = ({ lamp }) => (
+  <div className="absolute inset-0 overflow-hidden" style={{ background: 'linear-gradient(180deg, #DDE5F6 0%, #ECEFF6 38%, #F4F1EA 100%)' }}>
+    <div className="absolute -top-[20vh] right-[-10vw] h-[80vh] w-[80vh] rounded-full transition-opacity duration-1000"
+      style={{ background: 'radial-gradient(circle, rgba(255,214,150,0.75), rgba(255,214,150,0) 65%)', opacity: lamp ? 1 : 0.45 }} />
+    <svg className="absolute left-[4vw] top-[52vh] h-40 w-40 opacity-[0.08]" viewBox="0 0 100 100" aria-hidden="true">
+      <path fill="#1F3A8A" d="M50 12c14 2 30 10 32 26 2 12-8 16-6 26s-8 22-24 22-30-8-32-22 6-18 4-28S34 10 50 12z" />
+      <circle cx="88" cy="18" r="4" fill="#1F3A8A" /><circle cx="12" cy="86" r="3" fill="#1F3A8A" />
+    </svg>
+    <svg className="absolute right-[8vw] top-[120vh] h-24 w-24 opacity-[0.07]" viewBox="0 0 100 100" aria-hidden="true">
+      <path fill="#1F3A8A" d="M48 20c12 0 26 8 26 22s-10 14-8 24-10 16-20 14-22-8-22-20 8-12 6-22 6-18 18-18z" />
+    </svg>
+  </div>
+);
+import { speakSoftly, softVoices } from '../../services/softVoice';
 
 // Enhanced prompt categories with difficulty levels and therapeutic approaches
 const promptLibrary = {
@@ -288,19 +307,10 @@ const useVoiceFeatures = () => {
   useEffect(() => {
     const loadVoices = () => {
       try {
-        const availableVoices = speechSynthesis.getVoices();
+        // Journal text is private: only voices that run on this device are offered.
+        const availableVoices = softVoices(speechSynthesis.getVoices(), { allowOnline: false });
         setVoices(availableVoices);
-        if (availableVoices.length > 0 && !selectedVoice) {
-          // Prefer calm, clear voices
-          const preferredVoice = availableVoices.find(voice => 
-            voice.name.toLowerCase().includes('samantha') || 
-            voice.name.toLowerCase().includes('karen') ||
-            voice.name.toLowerCase().includes('zira') ||
-            voice.name.toLowerCase().includes('susan') ||
-            (voice.name.toLowerCase().includes('female') && voice.lang.includes('en'))
-          );
-          setSelectedVoice(preferredVoice || availableVoices[0]);
-        }
+        if (availableVoices.length > 0 && !selectedVoice) setSelectedVoice(availableVoices[0]);
       } catch {
         setVoiceError('Speech synthesis not supported');
       }
@@ -316,26 +326,18 @@ const useVoiceFeatures = () => {
     if (!text || voiceError) return;
     
     try {
-      speechSynthesis.cancel();
-      utteranceRef.current = new SpeechSynthesisUtterance(text);
-      
-      if (selectedVoice) {
-        utteranceRef.current.voice = selectedVoice;
-      }
-      
-      utteranceRef.current.rate = 0.75;
-      utteranceRef.current.pitch = 1.0;
-      utteranceRef.current.volume = 0.8;
-      
-      utteranceRef.current.onstart = () => setIsReading(true);
-      utteranceRef.current.onend = () => setIsReading(false);
-      utteranceRef.current.onerror = (error) => {
-        console.error('Speech error:', error);
-        setIsReading(false);
-        setVoiceError('Speech playback error');
-      };
-      
-      speechSynthesis.speak(utteranceRef.current);
+      utteranceRef.current = speakSoftly(text, {
+        allowOnline: false,
+        voice: selectedVoice,
+        rate: 0.8,
+        onStart: () => setIsReading(true),
+        onEnd: () => setIsReading(false),
+        onError: (error) => {
+          console.error('Speech error:', error);
+          setIsReading(false);
+          setVoiceError('Speech playback error');
+        },
+      });
     } catch {
       setVoiceError('Unable to read text aloud');
     }
@@ -437,19 +439,17 @@ export default function AdvancedCalmJournal() {
   
   // Rich text and formatting
   const [fontSize, setFontSize] = useState('16px');
-  const [lineHeight, setLineHeight] = useState('1.6');
-  const [fontFamily, setFontFamily] = useState('Georgia');
+  const [fontFamily, setFontFamily] = useState('pencil');
   const [textAlign, setTextAlign] = useState('left');
-  const [textColor] = useState('#374151');
-  const [backgroundColor] = useState('#ffffff');
   const [theme, setTheme] = useState('light');
   
   // Advanced functionality
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [wordGoal, setWordGoal] = useState(null);
   const [timeGoal, setTimeGoal] = useState(null);
   const [sessionStart, setSessionStart] = useState(null);
   const [focusMode, setFocusMode] = useState(false);
+  const [pageFocused, setPageFocused] = useState(false);
+  const reduceMotion = useReducedMotion();
   const [writingMode, setWritingMode] = useState('freeform');
   
   // Interventions and insights
@@ -824,557 +824,339 @@ export default function AdvancedCalmJournal() {
     localStorage.setItem('customPrompts', JSON.stringify(newPrompts));
   };
 
+  // REDESIGN: shared bits for the notebook look.
+  const field = 'rounded-lg border-2 border-ink-900/20 bg-sheet px-3 py-2 text-ink-900 focus:border-ink-900 focus:outline-none';
+  const round = 'flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink-900/20 bg-sheet text-ink-900 hover:border-ink-900';
+  // The page is ruled, so the line height is fixed to the ruling. Older saved settings
+  // (Georgia, Arial and so on) fall back to the pencil hand.
+  const pageFonts = {
+    pencil: { label: 'Pencil', className: 'font-pencil', size: 1.05 },
+    marker: { label: 'Marker', className: 'font-handwritten', size: 1.35 },
+    plain: { label: 'Plain', className: 'font-sans', size: 1 },
+  };
+  const pageFontKey = pageFonts[fontFamily] ? fontFamily : 'pencil';
+  const pageFont = pageFonts[pageFontKey];
+  const lineFor = (size) => `${Math.round(parseFloat(size) * 1.9)}px`;
+  const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+  const sessionMinutes = sessionStart ? Math.round((Date.now() - sessionStart.getTime()) / 1000 / 60) : 0;
+
   const renderWriteTab = () => (
     <div className="space-y-6">
-      {/* Achievement Notification */}
+      {/* Achievement note */}
       {showAchievements && achievements.length > 0 && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-yellow-400 to-orange-400 text-white p-4 rounded-2xl shadow-xl animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">🏆</div>
-            <div>
-              <div className="font-bold">Achievement Unlocked!</div>
-              <div className="text-sm opacity-90">
-                {achievements.includes('first-week') && 'First Week Complete! '}
-                {achievements.includes('week-streak') && 'Week Streak! '}
-                {achievements.includes('month-milestone') && '30 Entries Milestone! '}
-              </div>
-            </div>
-          </div>
+        <div className="paper-sheet fixed left-1/2 top-24 z-50 -translate-x-1/2 border-l-4 border-marigold-500 px-5 py-3" role="status">
+          <p className="font-bold text-ink-900">A small milestone</p>
+          <p className="text-sm text-ink-700">
+            {achievements.includes('first-week') && 'First week of writing. '}
+            {achievements.includes('week-streak') && 'Seven days in a row. '}
+            {achievements.includes('month-milestone') && 'Thirty entries. '}
+          </p>
         </div>
       )}
 
-      {/* Smart Intervention Overlay */}
+      {/* Gentle suggestion while writing */}
       {showIntervention && (
-        <div className="fixed top-4 right-4 z-50 max-w-sm bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 shadow-xl intervention-enter">
-          <div className="flex items-start gap-3">
-            <Lightbulb size={20} className="text-indigo-600 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs text-indigo-600 font-medium mb-1">Mindful Moment</div>
-              <p className="text-sm text-slate-700 mb-3 leading-relaxed">
-                {currentIntervention}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleInterventionResponse(true)}
-                  className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-xs hover:bg-green-300 transition-colors"
-                >
-                  👍 Helpful
-                </button>
-                <button
-                  onClick={() => handleInterventionResponse(false)}
-                  className="px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-xs hover:bg-gray-300 transition-colors"
-                >
-                  ✋ Not now
-                </button>
-              </div>
-            </div>
+        <aside className="paper-sheet fixed right-4 top-24 z-50 max-w-sm border-l-4 border-sage-500 p-4 intervention-enter" role="status">
+          <p className="margin-note text-[1.4rem]">A thought</p>
+          <p className="mb-3 mt-1 text-sm leading-relaxed text-ink-800">{currentIntervention}</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => handleInterventionResponse(true)} className="btn-outline !px-3 !py-1 text-sm">That helps</button>
+            <button type="button" onClick={() => handleInterventionResponse(false)} className="text-sm font-bold text-ink-700 underline underline-offset-4">Not now</button>
           </div>
-        </div>
+        </aside>
       )}
-      
-      {/* Progress Tracker */}
-      <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Target size={18} className="text-green-600" />
-            <span className="font-medium text-slate-700">Today's Progress</span>
-          </div>
-          <div className="text-sm text-green-600 font-medium">{streakCount} day streak</div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-lg font-bold text-green-600">
-              {text.split(' ').filter(w => w.length > 0).length}
-            </div>
-            <div className="text-xs text-slate-600">Words</div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-blue-600">
-              {sessionStart ? Math.round((Date.now() - sessionStart.getTime()) / 1000 / 60) : 0}m
-            </div>
-            <div className="text-xs text-slate-600">Time</div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-purple-600">{totalSessions}</div>
-            <div className="text-xs text-slate-600">Total</div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Entry Header */}
-      <div className="space-y-4">
+
+      {/* Title and tags */}
+      <div className="space-y-3">
+        <label htmlFor="entry-title" className="sr-only">Entry title</label>
         <input
+          id="entry-title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Give your entry a title (optional)"
-          className="w-full px-4 py-3 bg-white/70 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all writing-flow"
+          placeholder="A title, if you want one"
+          className="w-full border-0 border-b-2 border-ink-900/20 bg-transparent px-1 py-2 font-handwritten text-[1.9rem] text-ink-900 placeholder:text-paper-400 focus:border-ink-900 focus:outline-none"
         />
-        
-        <div className="flex gap-4 items-center flex-wrap">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && currentTag.trim()) {
-                  setTags([...tags, currentTag.trim()]);
-                  setCurrentTag('');
-                }
-              }}
-              placeholder="Add tags..."
-              className="px-3 py-2 bg-white/70 rounded-lg border border-slate-200 text-sm"
-            />
-            <button
-              onClick={() => {
-                if (currentTag.trim()) {
-                  setTags([...tags, currentTag.trim()]);
-                  setCurrentTag('');
-                }
-              }}
-              className="px-3 py-2 bg-indigo-200 text-indigo-800 rounded-lg hover:bg-indigo-300 text-sm transition-colors"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-          
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center gap-1"
-                >
-                  <Hash size={10} />
-                  {tag}
-                  <button
-                    onClick={() => setTags(tags.filter((_, i) => i !== index))}
-                    className="hover:text-blue-900 ml-1"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="entry-tag" className="sr-only">Add a tag</label>
+          <input
+            id="entry-tag"
+            type="text"
+            value={currentTag}
+            onChange={(e) => setCurrentTag(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && currentTag.trim()) {
+                setTags([...tags, currentTag.trim()]);
+                setCurrentTag('');
+              }
+            }}
+            placeholder="Add a tag"
+            className={field + ' w-40 !py-1.5 text-sm'}
+          />
+          <button
+            type="button"
+            aria-label="Add tag"
+            onClick={() => {
+              if (currentTag.trim()) {
+                setTags([...tags, currentTag.trim()]);
+                setCurrentTag('');
+              }
+            }}
+            className={round}
+          >
+            <Plus size={16} />
+          </button>
+          {tags.map((tag, index) => (
+            <span key={index} className="inline-flex items-center gap-1 rounded-full border-2 border-ink-900/20 px-2 py-0.5 text-sm text-ink-800">
+              #{tag}
+              <button type="button" aria-label={`Remove tag ${tag}`} onClick={() => setTags(tags.filter((_, i) => i !== index))} className="text-ink-700 hover:text-ink-900">
+                <X size={12} />
+              </button>
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Enhanced Mood Selector */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <h3 className="text-lg font-medium text-slate-700 flex items-center">
-            <Heart size={20} className="mr-2 text-pink-400" />
-            How are you feeling?
-          </h3>
-          <div className="flex gap-2">
+      {/* Mood */}
+      <section aria-labelledby="mood-heading">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 id="mood-heading" className="text-xl font-bold text-ink-900">How are you feeling? <span className="text-sm font-normal text-ink-700">(optional)</span></h3>
+          <div className="flex gap-4" role="tablist" aria-label="Kind of feeling">
             {['emotional', 'energy', 'physical'].map(category => (
               <button
                 key={category}
+                type="button"
+                role="tab"
+                aria-selected={moodCategory === category}
                 onClick={() => setMoodCategory(category)}
-                className={`px-4 py-2 rounded-full text-sm transition-colors capitalize ${
-                  moodCategory === category 
-                  ? 'bg-pink-200 text-pink-800' 
-                  : 'bg-white/60 hover:bg-white/80 text-slate-600'
-                }`}
+                className={`font-bold capitalize text-ink-900 ${moodCategory === category ? 'highlight' : 'text-ink-700 hover:underline hover:underline-offset-4'}`}
               >
-                {category === 'emotional' && '💝'} 
-                {category === 'energy' && '⚡'} 
-                {category === 'physical' && '💪'} 
                 {category}
               </button>
             ))}
           </div>
         </div>
-        
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {moodCategories[moodCategory].map((m, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                setMood(prev => ({ ...prev, [moodCategory]: m }));
-                // Add mood selection animation
-                const btn = document.querySelector(`[data-mood="${m.label}"]`);
-                if (btn) btn.classList.add('mood-selected');
-              }}
-              data-mood={m.label}
-              className={`
-                p-3 rounded-2xl transition-all duration-300 text-center group
-                ${mood[moodCategory]?.label === m.label 
-                  ? m.color + ' ring-2 ring-indigo-300 transform scale-105 shadow-lg' 
-                  : 'bg-white/50 hover:bg-white/80 hover:scale-102'
-                }
-              `}
-            >
-              <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">{m.emoji}</div>
-              <div className="text-xs text-slate-600 font-medium">{m.label}</div>
-            </button>
-          ))}
+        <div>
+          <div className="flex flex-wrap gap-1">
+            {moodCategories[moodCategory].map((m, index) => {
+              const on = mood[moodCategory]?.label === m.label;
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setMood(prev => ({ ...prev, [moodCategory]: on ? null : m }))}
+                  className="relative w-[5.5rem] px-1 py-2 text-center"
+                >
+                  {on && (
+                    <Motion.span layoutId={`ink-${moodCategory}`} aria-hidden="true"
+                      className="absolute inset-x-2 inset-y-1 -z-0 rounded-[46%_54%_42%_58%/55%_45%_55%_45%] bg-[#C9D6F2]"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }} />
+                  )}
+                  <Motion.span className="relative block text-3xl" aria-hidden="true"
+                    whileHover={reduceMotion ? undefined : { scale: 1.2, rotate: -6 }} whileTap={reduceMotion ? undefined : { scale: 0.9 }}>
+                    {m.emoji}
+                  </Motion.span>
+                  <span className={`relative mt-1 block text-sm ${on ? 'font-bold text-ink-900' : 'text-ink-700'}`}>{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        
-        {/* Mood Intensity Slider */}
         {mood[moodCategory] && (
-          <div className="mt-4">
-            <label className="block text-sm text-slate-600 mb-2">
-              Intensity: {moodIntensity}/10
-            </label>
+          <label className="mt-4 block max-w-md text-sm text-ink-800">
+            How strong: <span className="font-bold text-ink-900">{moodIntensity}/10</span>
             <input
               type="range"
               min="1"
               max="10"
               value={moodIntensity}
               onChange={(e) => setMoodIntensity(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+              className="mt-2 w-full accent-ink-900"
             />
-          </div>
+          </label>
         )}
-      </div>
+      </section>
 
-      {/* Smart Prompt System */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-slate-700 flex items-center">
-            <Sparkles size={20} className="mr-2 text-indigo-400" />
-            Writing Prompt
-          </h3>
-          <div className="flex gap-2">
-            <select
-              value={promptDifficulty}
-              onChange={(e) => setPromptDifficulty(e.target.value)}
-              className="px-3 py-2 bg-white/70 rounded-lg border border-slate-200 text-sm"
-            >
+      {/* Prompt */}
+      <section aria-labelledby="prompt-heading">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 id="prompt-heading" className="text-xl font-bold text-ink-900">Something to start with</h3>
+          <div className="flex flex-wrap gap-2">
+            <label className="sr-only" htmlFor="prompt-depth">Prompt depth</label>
+            <select id="prompt-depth" value={promptDifficulty} onChange={(e) => setPromptDifficulty(e.target.value)} className={field + ' !py-1.5 text-sm'}>
               <option value="beginner">Gentle</option>
               <option value="intermediate">Deeper</option>
-              <option value="advanced">Profound</option>
+              <option value="advanced">Harder</option>
             </select>
-            <select
-              value={promptCategory}
-              onChange={(e) => setPromptCategory(e.target.value)}
-              className="px-3 py-2 bg-white/70 rounded-lg border border-slate-200 text-sm"
-            >
-              <option value="empathic">Empathic</option>
-              <option value="cbt">CBT-Based</option>
+            <label className="sr-only" htmlFor="prompt-kind">Prompt kind</label>
+            <select id="prompt-kind" value={promptCategory} onChange={(e) => setPromptCategory(e.target.value)} className={field + ' !py-1.5 text-sm'}>
+              <option value="empathic">Kind</option>
+              <option value="cbt">Thoughts (CBT)</option>
               <option value="creative">Creative</option>
-              <option value="mindfulness">Mindfulness</option>
+              <option value="mindfulness">Mindful</option>
             </select>
           </div>
         </div>
-        
-        {showPrompt && (
-          <div className="p-6 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-2xl border border-blue-100/50">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs px-2 py-1 bg-white/60 rounded-full text-slate-600 capitalize">
-                    {promptDifficulty} • {promptCategory}
-                  </span>
-                  {voices.length > 0 && !voiceError && (
-                    <button
-                      onClick={() => isReading ? stopReading() : readText(currentPrompt)}
-                      className="p-1 bg-white/60 rounded-full hover:bg-white/80 text-slate-600 transition-colors"
-                      title={isReading ? "Stop reading" : "Read prompt aloud"}
-                    >
-                      {isReading ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setCurrentPrompt(promptLibrary[promptDifficulty === 'beginner' ? 'beginner' : promptDifficulty][promptCategory === 'mindfulness' ? Math.random() > 0.5 ? 'empathic' : 'cbt' : promptCategory][Math.floor(Math.random() * (promptLibrary[promptDifficulty === 'beginner' ? 'beginner' : promptDifficulty][promptCategory] || promptLibrary.beginner.empathic).length)])}
-                    className="p-1 bg-white/60 rounded-full hover:bg-white/80 text-slate-600 transition-colors"
-                    title="Get new prompt"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                </div>
-                <p className="text-slate-700 text-lg leading-relaxed font-light italic">
-                  "{currentPrompt}"
-                </p>
-              </div>
+
+        {showPrompt ? (
+          <div className="flex items-start gap-3 border-l-4 border-[#3E6FD8] pl-4 [perspective:800px]">
+            <AnimatePresence mode="wait" initial={false}>
+              <Motion.p key={currentPrompt}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, rotateX: -70, y: -6 }}
+                animate={{ opacity: 1, rotateX: 0, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, rotateX: 70, y: 6 }}
+                transition={{ duration: 0.35 }}
+                style={{ transformOrigin: 'top center' }}
+                className="flex-1 font-handwritten text-[clamp(1.75rem,3vw,2.2rem)] leading-snug text-[#1F3A8A]">
+                {currentPrompt}
+              </Motion.p>
+            </AnimatePresence>
+            <div className="flex shrink-0 gap-1">
+              {voices.length > 0 && !voiceError && (
+                <button type="button" onClick={() => isReading ? stopReading() : readText(currentPrompt)} className={round}
+                  aria-label={isReading ? 'Stop reading' : 'Read the prompt aloud'}>
+                  {isReading ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+              )}
               <button
-                onClick={() => setShowPrompt(false)}
-                className="ml-4 text-slate-400 hover:text-slate-600 transition-colors"
+                type="button"
+                onClick={() => setCurrentPrompt(promptLibrary[promptDifficulty === 'beginner' ? 'beginner' : promptDifficulty][promptCategory === 'mindfulness' ? Math.random() > 0.5 ? 'empathic' : 'cbt' : promptCategory][Math.floor(Math.random() * (promptLibrary[promptDifficulty === 'beginner' ? 'beginner' : promptDifficulty][promptCategory] || promptLibrary.beginner.empathic).length)])}
+                className={round}
+                aria-label="Another prompt"
               >
-                <X size={20} />
+                <RotateCcw size={16} />
+              </button>
+              <button type="button" onClick={() => setShowPrompt(false)} className={round} aria-label="Hide the prompt">
+                <X size={16} />
               </button>
             </div>
           </div>
-        )}
-        
-        {!showPrompt && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowPrompt(true)}
-              className="px-6 py-3 bg-gradient-to-r from-indigo-200 to-purple-200 text-slate-700 rounded-full hover:from-indigo-300 hover:to-purple-300 transition-all duration-300 font-medium flex items-center gap-2"
-            >
-              <Sparkles size={16} />
-              Show me a prompt
-            </button>
-            <button
-              onClick={() => setWritingMode(writingMode === 'freeform' ? 'guided' : 'freeform')}
-              className={`px-4 py-3 rounded-full text-sm transition-colors ${
-                writingMode === 'guided' 
-                ? 'bg-purple-200 text-purple-800' 
-                : 'bg-white/60 hover:bg-white/80 text-slate-600'
-              }`}
-            >
-              {writingMode === 'freeform' ? 'Switch to Guided' : 'Switch to Freeform'}
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => setShowPrompt(true)} className="btn-outline">Show a prompt</button>
+            <button type="button" onClick={() => setWritingMode(writingMode === 'freeform' ? 'guided' : 'freeform')}
+              aria-pressed={writingMode === 'guided'} className="text-sm font-bold text-ink-800 underline underline-offset-4">
+              {writingMode === 'freeform' ? 'Write with the prompt' : 'Write freely'}
             </button>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Advanced Writing Toolbar */}
-      <div className="p-4 bg-white/70 rounded-2xl border border-slate-200/50 space-y-4">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <Type size={16} className="text-slate-600" />
-            <select
-              value={fontSize}
-              onChange={(e) => setFontSize(e.target.value)}
-              className="px-3 py-1 bg-white/80 rounded-lg border border-slate-200 text-sm"
-            >
-              <option value="14px">Small</option>
-              <option value="16px">Medium</option>
-              <option value="18px">Large</option>
-              <option value="20px">X-Large</option>
-              <option value="24px">XX-Large</option>
-            </select>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600">Font:</span>
-            <select
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-              className="px-3 py-1 bg-white/80 rounded-lg border border-slate-200 text-sm"
-            >
-              <option value="Georgia">Georgia</option>
-              <option value="Times New Roman">Times</option>
-              <option value="Arial">Arial</option>
-              <option value="Helvetica">Helvetica</option>
-              <option value="Courier New">Courier</option>
-              <option value="Palatino">Palatino</option>
-            </select>
-          </div>
-          
-          <div className="flex gap-1">
-            <button
-              onClick={() => setTextAlign('left')}
-              className={`p-2 rounded-lg transition-colors ${textAlign === 'left' ? 'bg-indigo-200 text-indigo-700' : 'bg-white/60 hover:bg-white/80'}`}
-            >
-              <AlignLeft size={16} />
+      {/* Page settings */}
+      <div className="flex flex-wrap items-center gap-3 text-sm text-ink-800">
+        <label className="flex items-center gap-2">
+          Text size
+          <select value={fontSize} onChange={(e) => setFontSize(e.target.value)} className={field + ' !py-1 text-sm'}>
+            <option value="14px">Small</option>
+            <option value="16px">Medium</option>
+            <option value="18px">Large</option>
+            <option value="20px">Extra large</option>
+            <option value="24px">Largest</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Writing
+          <select value={pageFontKey} onChange={(e) => setFontFamily(e.target.value)} className={field + ' !py-1 text-sm'}>
+            {Object.entries(pageFonts).map(([value, f]) => <option key={value} value={value}>{f.label}</option>)}
+          </select>
+        </label>
+        <div className="flex gap-1" role="group" aria-label="Text alignment">
+          {[{ a: 'left', icon: AlignLeft }, { a: 'center', icon: AlignCenter }, { a: 'right', icon: AlignRight }].map(({ a, ...x }) => (
+            <button key={a} type="button" onClick={() => setTextAlign(a)} aria-pressed={textAlign === a} aria-label={`Align ${a}`}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 ${textAlign === a ? 'border-ink-900' : 'border-transparent hover:border-ink-900/30'}`}>
+              {React.createElement(x.icon, { size: 16 })}
             </button>
-            <button
-              onClick={() => setTextAlign('center')}
-              className={`p-2 rounded-lg transition-colors ${textAlign === 'center' ? 'bg-indigo-200 text-indigo-700' : 'bg-white/60 hover:bg-white/80'}`}
-            >
-              <AlignCenter size={16} />
-            </button>
-            <button
-              onClick={() => setTextAlign('right')}
-              className={`p-2 rounded-lg transition-colors ${textAlign === 'right' ? 'bg-indigo-200 text-indigo-700' : 'bg-white/60 hover:bg-white/80'}`}
-            >
-              <AlignRight size={16} />
-            </button>
-          </div>
-          
-          {(wordGoal || timeGoal) && (
-            <div className="flex items-center gap-4">
-              {wordGoal && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-100 rounded-lg">
-                  <Target size={16} className="text-green-600" />
-                  <span className="text-sm text-green-700">
-                    {text.split(' ').filter(w => w.length > 0).length}/{wordGoal} words
-                  </span>
-                </div>
-              )}
-              {timeGoal && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-lg">
-                  <Clock size={16} className="text-blue-600" />
-                  <span className="text-sm text-blue-700">
-                    {sessionStart ? Math.round((Date.now() - sessionStart.getTime()) / 1000 / 60) : 0}/{timeGoal}m
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* Enhanced Writing Area */}
-      <div className="relative">
+      {/* The page itself */}
+      <div className={`paper-sheet ruled relative py-8 pl-16 pr-6 transition-all duration-700 ${pageFocused ? 'shadow-[0_30px_80px_-30px_rgba(196,140,60,0.55)]' : 'motion-safe:-rotate-[0.4deg]'}`}
+        style={{ '--line': lineFor(fontSize) }}>
+        <label htmlFor="journal-text" className="sr-only">Journal entry</label>
         <textarea
+          id="journal-text"
           ref={textAreaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => setPageFocused(true)}
+          onBlur={() => setPageFocused(false)}
           style={{
-            fontSize,
-            fontFamily,
+            fontSize: pageFont.size ? `calc(${fontSize} * ${pageFont.size})` : fontSize,
             textAlign,
-            color: textColor,
-            backgroundColor,
-            lineHeight,
-            minHeight: focusMode ? '80vh' : '400px'
+            lineHeight: lineFor(fontSize),
+            minHeight: focusMode ? '70vh' : `calc(${lineFor(fontSize)} * 12)`,
           }}
-          className={`w-full p-6 rounded-2xl border border-slate-200/50 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all duration-300 resize-none leading-relaxed placeholder-slate-400 writing-flow ${
-            focusMode ? 'bg-white shadow-2xl' : 'bg-white/50'
-          }`}
-          placeholder={writingMode === 'guided' && showPrompt 
-            ? "Let the prompt guide your thoughts... There's no right or wrong way to respond."
-            : "Let your thoughts flow here... There's no wrong way to express what's in your heart."
-          }
+          className={`block w-full resize-none border-0 bg-transparent p-0 text-ink-900 placeholder:text-paper-400 focus:outline-none ${pageFont.className}`}
+          placeholder={writingMode === 'guided' && showPrompt
+            ? 'Start with the prompt, or anywhere else. There is no right answer.'
+            : 'Write whatever is on your mind. Nobody else reads this.'}
         />
-        
-        {/* Live Stats & Auto-save Indicator */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-4 text-xs">
-          {isSaving && (
-            <div className="flex items-center gap-2 bg-white/90 px-3 py-2 rounded-lg shadow-sm">
-              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-              <span className="text-slate-600">Saving...</span>
-            </div>
-          )}
-          {lastSaved && !isSaving && (
-            <div className="bg-white/90 px-3 py-2 rounded-lg shadow-sm">
-              <span className="text-green-600">✓ Saved {lastSaved.toLocaleTimeString()}</span>
-            </div>
-          )}
-          {saveError && (
-            <div className="bg-red-100 px-3 py-2 rounded-lg shadow-sm">
-              <span className="text-red-600">⚠ {saveError}</span>
-            </div>
-          )}
-          {text.length > 0 && (
-            <div className="bg-white/90 px-3 py-2 rounded-lg shadow-sm text-slate-600">
-              {text.split(' ').filter(w => w.length > 0).length} words
-            </div>
-          )}
-          {sessionStart && (
-            <div className="bg-white/90 px-3 py-2 rounded-lg shadow-sm text-slate-600">
-              {Math.round((Date.now() - sessionStart.getTime()) / 1000 / 60)}m
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Real-time Sentiment Analysis */}
+      {/* Status line under the page */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-ink-700" aria-live="polite">
+        <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}{wordGoal ? ` of ${wordGoal}` : ''}</span>
+        <span>{sessionMinutes} min{timeGoal ? ` of ${timeGoal}` : ''}</span>
+        {isSaving && <span>Saving the draft…</span>}
+        {lastSaved && !isSaving && <span>Draft saved in this browser at {lastSaved.toLocaleTimeString()}</span>}
+        {saveError && <span className="font-bold text-red-800">{saveError}</span>}
+        {streakCount > 0 && <span>{streakCount} {streakCount === 1 ? 'day' : 'days'} in a row</span>}
+      </div>
+
+      {/* Word-pattern indicators */}
       {text.length > 100 && (
-        <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-2xl border border-indigo-100/30">
-          <h4 className="text-sm font-medium text-slate-600 mb-3 flex items-center">
-            <Activity size={16} className="mr-2 text-indigo-600" />
-            Experimental word-pattern indicators
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            <div className="text-center">
-              <div className={`text-lg font-semibold ${sentimentData.polarity > 0 ? 'text-green-600' : sentimentData.polarity < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
-                {sentimentData.polarity > 0.2 ? '😊' : sentimentData.polarity < -0.2 ? '🌧️' : '😐'}
-              </div>
-              <div className="text-slate-500">Emotional Tone</div>
-              <div className="text-xs text-slate-400">
-                {Math.round(sentimentData.polarity * 100)}%
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-indigo-600 font-semibold text-lg">
-                {Math.round(sentimentData.growth * 100)}%
-              </div>
-              <div className="text-slate-500">Growth</div>
-            </div>
-            <div className="text-center">
-              <div className="text-purple-600 font-semibold text-lg">
-                {Math.round(sentimentData.selfCompassion * 100)}%
-              </div>
-              <div className="text-slate-500">Self-Compassion</div>
-            </div>
-            <div className="text-center">
-              <div className="text-green-600 font-semibold text-lg">
-                {Math.round(sentimentData.mindfulness * 100)}%
-              </div>
-              <div className="text-slate-500">Mindfulness</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Insights */}
-      {insights.length > 0 && (
-        <div className="p-4 bg-gradient-to-r from-yellow-50/50 to-orange-50/50 rounded-2xl border border-yellow-100/30">
-          <h4 className="text-sm font-medium text-slate-600 mb-3 flex items-center">
-            <Brain size={16} className="mr-2 text-yellow-600" />
-            Personal Insights
-          </h4>
-          <div className="space-y-2">
-            {insights.slice(-2).map(insight => (
-              <div key={insight.id} className="flex items-start gap-2">
-                <div className="text-sm">💡</div>
-                <p className="text-sm text-slate-600 italic flex-1">
-                  {insight.text}
-                </p>
-                <div className={`px-2 py-1 rounded-full text-xs ${
-                  insight.category === 'growth' ? 'bg-green-100 text-green-700' :
-                  insight.category === 'compassion' ? 'bg-pink-100 text-pink-700' :
-                  'bg-blue-100 text-blue-700'
-                }`}>
-                  {insight.category}
-                </div>
-              </div>
+        <details className="paper-sheet p-5">
+          <summary className="cursor-pointer font-bold text-ink-900">Word-pattern counts (experimental)</summary>
+          <p className="mt-2 text-sm text-ink-700">
+            These count certain words in what you wrote. They are rough and can be wrong. They do not measure how you are.
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[
+              ['Tone', `${Math.round(sentimentData.polarity * 100)}%`],
+              ['Growth words', `${Math.round(sentimentData.growth * 100)}%`],
+              ['Kind-to-self words', `${Math.round(sentimentData.selfCompassion * 100)}%`],
+              ['Present-moment words', `${Math.round(sentimentData.mindfulness * 100)}%`],
+            ].map(([k, v]) => (
+              <div key={k}><dt className="text-sm text-ink-700">{k}</dt><dd className="text-xl font-bold text-ink-900">{v}</dd></div>
             ))}
-          </div>
-        </div>
+          </dl>
+        </details>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex gap-3 flex-wrap">
-          <button
-            onClick={() => setFocusMode(!focusMode)}
-            className={`px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2 ${
-              focusMode ? 'bg-purple-200 text-purple-800' : 'bg-white/60 hover:bg-white/80 text-slate-600'
-            }`}
-          >
-            <Monitor size={16} />
-            {focusMode ? 'Exit Focus' : 'Focus Mode'}
+      {insights.length > 0 && (
+        <section className="paper-sheet p-5">
+          <h4 className="mb-2 font-bold text-ink-900">Notes from your writing</h4>
+          <ul className="space-y-2">
+            {insights.slice(-2).map(insight => (
+              <li key={insight.id} className="font-handwritten text-[1.45rem] leading-snug text-ink-800">{insight.text}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-ink-800">
+          <button type="button" onClick={() => setFocusMode(!focusMode)} aria-pressed={focusMode} className="underline underline-offset-4">
+            {focusMode ? 'Smaller page' : 'Bigger page'}
           </button>
-          <button
-            onClick={() => setWordGoal(wordGoal ? null : 200)}
-            className={`px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2 ${
-              wordGoal ? 'bg-green-200 text-green-800' : 'bg-white/60 hover:bg-white/80 text-slate-600'
-            }`}
-          >
-            <Target size={16} />
-            {wordGoal ? `${wordGoal} words` : 'Set Goal'}
+          <button type="button" onClick={() => setWordGoal(wordGoal ? null : 200)} aria-pressed={!!wordGoal} className="underline underline-offset-4">
+            {wordGoal ? 'Remove word goal' : 'Aim for 200 words'}
           </button>
-          <button
-            onClick={() => setTimeGoal(timeGoal ? null : 15)}
-            className={`px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2 ${
-              timeGoal ? 'bg-blue-200 text-blue-800' : 'bg-white/60 hover:bg-white/80 text-slate-600'
-            }`}
-          >
-            <Clock size={16} />
-            {timeGoal ? `${timeGoal}m` : 'Set Timer'}
+          <button type="button" onClick={() => setTimeGoal(timeGoal ? null : 15)} aria-pressed={!!timeGoal} className="underline underline-offset-4">
+            {timeGoal ? 'Remove time goal' : 'Aim for 15 minutes'}
           </button>
           {voices.length > 0 && !voiceError && (
-            <button
-              onClick={() => isReading ? stopReading() : readText(text)}
-              disabled={!text.trim()}
-              className="px-4 py-2 bg-indigo-200 text-indigo-800 rounded-full hover:bg-indigo-300 disabled:bg-gray-200 disabled:text-gray-500 text-sm flex items-center gap-2 transition-colors"
-            >
-              {isReading ? <Pause size={16} /> : <Play size={16} />}
-              {isReading ? 'Stop' : 'Listen'}
+            <button type="button" onClick={() => isReading ? stopReading() : readText(text)} disabled={!text.trim()}
+              className="underline underline-offset-4 disabled:opacity-40">
+              {isReading ? 'Stop reading' : 'Read it back to me'}
             </button>
           )}
         </div>
-        
-        <button
-          onClick={saveEntry}
-          disabled={!text.trim()}
-          className={`px-6 py-3 rounded-full font-medium transition-all duration-300 shadow-sm flex items-center gap-2 ${
-            text.trim() 
-              ? 'bg-gradient-to-r from-indigo-400 to-purple-400 hover:from-indigo-500 hover:to-purple-500 text-white transform hover:scale-105' 
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-          }`}
-        >
-          <Save size={16} />
-          Save Entry
+        <button type="button" onClick={saveEntry} disabled={!text.trim()} className="btn-ink disabled:cursor-not-allowed disabled:opacity-40">
+          <Save size={18} aria-hidden="true" /> Save entry
         </button>
       </div>
     </div>
@@ -1394,13 +1176,13 @@ export default function AdvancedCalmJournal() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search your entries..."
-              className="w-full pl-10 pr-4 py-3 bg-white/70 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-200"
+              className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-ink-900/20 bg-sheet focus:ring-2 focus:ring-indigo-200"
             />
           </div>
           <select
             value={filterMood}
             onChange={(e) => setFilterMood(e.target.value)}
-            className="px-4 py-3 bg-white/70 rounded-xl border border-slate-200"
+            className="px-4 py-3 rounded-lg border-2 border-ink-900/20 bg-sheet"
           >
             <option value="all">All Moods</option>
             <option value="joyful">Joyful</option>
@@ -1413,7 +1195,7 @@ export default function AdvancedCalmJournal() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-3 bg-white/70 rounded-xl border border-slate-200"
+            className="px-4 py-3 rounded-lg border-2 border-ink-900/20 bg-sheet"
           >
             <option value="date">Latest First</option>
             <option value="mood">By Mood</option>
@@ -1424,27 +1206,27 @@ export default function AdvancedCalmJournal() {
 
         {/* Entry Stats */}
         {entries.length > 0 && (
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
+          <div className="paper-sheet p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold text-blue-600">{entries.length}</div>
-                <div className="text-sm text-slate-600">Total Entries</div>
+                <div className="text-sm text-ink-700">Total Entries</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-green-600">{streakCount}</div>
-                <div className="text-sm text-slate-600">Day Streak</div>
+                <div className="text-sm text-ink-700">Day Streak</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600">
                   {Math.round(entries.reduce((sum, e) => sum + e.wordCount, 0) / entries.length)}
                 </div>
-                <div className="text-sm text-slate-600">Avg Words</div>
+                <div className="text-sm text-ink-700">Avg Words</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-indigo-600">
                   {Math.round(entries.reduce((sum, e) => sum + (e.sentiment?.polarity || 0), 0) / entries.length * 100)}%
                 </div>
-                <div className="text-sm text-slate-600">Avg Mood</div>
+                <div className="text-sm text-ink-700">Avg Mood</div>
               </div>
             </div>
           </div>
@@ -1454,12 +1236,12 @@ export default function AdvancedCalmJournal() {
         <div className="space-y-4">
           {filteredEntries.length > 0 ? (
             filteredEntries.map(entry => (
-              <div key={entry.id} className="p-6 bg-white/70 rounded-2xl border border-slate-200/50 hover:bg-white/80 transition-all cursor-pointer"
+              <div key={entry.id} className="paper-sheet p-6 transition-colors cursor-pointer hover:border-ink-900/30 border-2 border-transparent"
                    onClick={() => setSelectedEntry(selectedEntry?.id === entry.id ? null : entry)}>
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-medium text-slate-800">{entry.title}</h3>
-                    <p className="text-sm text-slate-500">
+                    <h3 className="text-lg font-medium text-ink-900">{entry.title}</h3>
+                    <p className="text-sm text-ink-700">
                       {new Date(entry.timestamp).toLocaleDateString(undefined, { 
                         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
                       })} • {entry.wordCount} words
@@ -1470,7 +1252,7 @@ export default function AdvancedCalmJournal() {
                     {entry.mood?.emotional && (
                       <div className="flex items-center gap-1">
                         <span className="text-lg">{entry.mood.emotional.emoji}</span>
-                        <span className="text-xs text-slate-500">{entry.moodIntensity}/10</span>
+                        <span className="text-xs text-ink-700">{entry.moodIntensity}/10</span>
                       </div>
                     )}
                     {entry.sentiment && (
@@ -1503,7 +1285,7 @@ export default function AdvancedCalmJournal() {
                   </div>
                 )}
                 
-                <p className="text-slate-700 leading-relaxed mb-4">
+                <p className="text-ink-800 leading-relaxed mb-4">
                   {selectedEntry?.id === entry.id 
                     ? entry.text 
                     : entry.text.length > 300 
@@ -1516,19 +1298,19 @@ export default function AdvancedCalmJournal() {
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-xs">
                       <div>
-                        <div className="font-semibold text-slate-600">Growth</div>
+                        <div className="font-semibold text-ink-700">Growth</div>
                         <div className="text-purple-600">{Math.round((entry.sentiment?.growth || 0) * 100)}%</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-600">Self-Compassion</div>
+                        <div className="font-semibold text-ink-700">Self-Compassion</div>
                         <div className="text-pink-600">{Math.round((entry.sentiment?.selfCompassion || 0) * 100)}%</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-600">Mindfulness</div>
+                        <div className="font-semibold text-ink-700">Mindfulness</div>
                         <div className="text-green-600">{Math.round((entry.sentiment?.mindfulness || 0) * 100)}%</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-600">Complexity</div>
+                        <div className="font-semibold text-ink-700">Complexity</div>
                         <div className="text-indigo-600">{Math.round((entry.sentiment?.complexity || 0) * 100)}%</div>
                       </div>
                     </div>
@@ -1536,7 +1318,7 @@ export default function AdvancedCalmJournal() {
                 )}
                 
                 {entry.prompt && selectedEntry?.id === entry.id && (
-                  <p className="text-sm text-slate-500 italic bg-slate-50 p-3 rounded-lg mt-4">
+                  <p className="text-sm text-ink-700 italic bg-marigold-50 p-3 rounded-lg mt-4">
                     Prompt: "{entry.prompt}"
                   </p>
                 )}
@@ -1545,8 +1327,8 @@ export default function AdvancedCalmJournal() {
           ) : (
             <div className="text-center py-12">
               <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="text-lg font-medium text-slate-600 mb-2">No entries found</h3>
-              <p className="text-slate-500">
+              <h3 className="text-lg font-medium text-ink-700 mb-2">No entries found</h3>
+              <p className="text-ink-700">
                 {entries.length === 0 ? 'Start writing your first entry!' : 'Try adjusting your search or filters.'}
               </p>
             </div>
@@ -1562,82 +1344,82 @@ export default function AdvancedCalmJournal() {
     return (
       <div className="space-y-6">
         {/* Current Session Stats */}
-        <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
-          <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+        <div className="paper-sheet p-6">
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
             <Clock size={20} className="mr-2 text-blue-600" />
             Current Session
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{currentSession.wordCount}</div>
-              <div className="text-sm text-slate-600">Words Written</div>
+              <div className="text-sm text-ink-700">Words Written</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-indigo-600">{currentSession.charCount}</div>
-              <div className="text-sm text-slate-600">Characters</div>
+              <div className="text-sm text-ink-700">Characters</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{currentSession.timeSpent}m</div>
-              <div className="text-sm text-slate-600">Time Spent</div>
+              <div className="text-sm text-ink-700">Time Spent</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{currentSession.goalProgress}%</div>
-              <div className="text-sm text-slate-600">Goal Progress</div>
+              <div className="text-sm text-ink-700">Goal Progress</div>
             </div>
           </div>
         </div>
 
         {/* All-Time Stats */}
-        <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100">
-          <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+        <div className="paper-sheet p-6">
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
             <BarChart3 size={20} className="mr-2 text-green-600" />
-            All-Time Statistics
+            All entries
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{allTimeStats.totalEntries}</div>
-              <div className="text-sm text-slate-600">Total Entries</div>
+              <div className="text-sm text-ink-700">Total Entries</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-emerald-600">{allTimeStats.totalWords.toLocaleString()}</div>
-              <div className="text-sm text-slate-600">Total Words</div>
+              <div className="text-sm text-ink-700">Total Words</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-teal-600">{allTimeStats.averageLength}</div>
-              <div className="text-sm text-slate-600">Avg Words/Entry</div>
+              <div className="text-sm text-ink-700">Avg Words/Entry</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-cyan-600">{Math.round(allTimeStats.totalTime)}m</div>
-              <div className="text-sm text-slate-600">Total Time</div>
+              <div className="text-sm text-ink-700">Total Time</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{Math.round(allTimeStats.averageGrowth * 100)}%</div>
-              <div className="text-sm text-slate-600">Avg Growth</div>
+              <div className="text-sm text-ink-700">Avg Growth</div>
             </div>
           </div>
         </div>
 
         {/* Streak & Achievements */}
-        <div className="p-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl border border-yellow-100">
-          <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+        <div className="paper-sheet p-6">
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
             <Star size={20} className="mr-2 text-yellow-600" />
-            Progress & Achievements
+            Streaks and milestones
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-3xl font-bold text-yellow-600 mb-2">{streakCount}</div>
-              <div className="text-sm text-slate-600 mb-2">Day Streak</div>
+              <div className="text-sm text-ink-700 mb-2">Day Streak</div>
               <div className="w-full bg-yellow-200 rounded-full h-2">
                 <div 
                   className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, (streakCount / 30) * 100)}%` }}
                 ></div>
               </div>
-              <div className="text-xs text-slate-500 mt-1">Goal: 30 days</div>
+              <div className="text-xs text-ink-700 mt-1">Goal: 30 days</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-orange-600 mb-2">{achievements.length}</div>
-              <div className="text-sm text-slate-600 mb-2">Achievements</div>
+              <div className="text-sm text-ink-700 mb-2">Achievements</div>
               <div className="flex justify-center gap-1">
                 {['first-week', 'week-streak', 'month-milestone'].map(achievement => (
                   <div key={achievement} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
@@ -1654,7 +1436,7 @@ export default function AdvancedCalmJournal() {
               <div className="text-3xl font-bold text-red-600 mb-2">
                 {Math.round(allTimeStats.averageMood * 100)}
               </div>
-              <div className="text-sm text-slate-600 mb-2">Mood Trend</div>
+              <div className="text-sm text-ink-700 mb-2">Mood Trend</div>
               <div className={`text-xs px-2 py-1 rounded-full ${
                 allTimeStats.averageMood > 0.2 ? 'bg-green-100 text-green-700' :
                 allTimeStats.averageMood < -0.2 ? 'bg-blue-100 text-blue-700' :
@@ -1669,60 +1451,60 @@ export default function AdvancedCalmJournal() {
 
         {/* Intervention Effectiveness */}
         {interventions.length > 0 && (
-          <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-            <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+          <div className="paper-sheet p-6">
+            <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
               <Brain size={20} className="mr-2 text-purple-600" />
-              AI Support Effectiveness
+              Suggestions while writing
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">{interventions.length}</div>
-                <div className="text-sm text-slate-600">Total Suggestions</div>
+                <div className="text-sm text-ink-700">Total Suggestions</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-pink-600">
                   {interventions.filter(i => i.helpful).length}
                 </div>
-                <div className="text-sm text-slate-600">Helpful</div>
+                <div className="text-sm text-ink-700">Helpful</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-rose-600">
                   {Math.round((interventions.filter(i => i.helpful).length / Math.max(interventions.length, 1)) * 100)}%
                 </div>
-                <div className="text-sm text-slate-600">Success Rate</div>
+                <div className="text-sm text-ink-700">Marked helpful (%)</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-violet-600">{insights.length}</div>
-                <div className="text-sm text-slate-600">Insights Generated</div>
+                <div className="text-sm text-ink-700">Notes made</div>
               </div>
             </div>
           </div>
         )}
 
         {/* Export Options */}
-        <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-          <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
-            <Download size={20} className="mr-2 text-slate-600" />
-            Export Your Data
+        <div className="paper-sheet p-6">
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
+            <Download size={20} className="mr-2 text-ink-700" />
+            Export your entries
           </h3>
           <div className="flex gap-4 flex-wrap">
             <button
               onClick={() => exportData('json')}
-              className="px-4 py-2 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-300 transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors flex items-center gap-2"
             >
               <FileText size={16} />
               Export as JSON
             </button>
             <button
               onClick={() => exportData('txt')}
-              className="px-4 py-2 bg-green-200 text-green-800 rounded-lg hover:bg-green-300 transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors flex items-center gap-2"
             >
               <BookOpen size={16} />
               Export as Text
             </button>
             <button
               onClick={() => exportData('csv')}
-              className="px-4 py-2 bg-purple-200 text-purple-800 rounded-lg hover:bg-purple-300 transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors flex items-center gap-2"
             >
               <BarChart3 size={16} />
               Export as CSV
@@ -1736,12 +1518,12 @@ export default function AdvancedCalmJournal() {
   const renderSettingsTab = () => (
     <div className="space-y-6">
       {/* Privacy Settings */}
-      <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
           <Shield size={20} className="mr-2 text-green-600" />
           Privacy & Security
         </h3>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-700">
           Journal entries and drafts are saved automatically in this browser. They are not encrypted by Relevia and have no automatic expiry.
           Anyone using this browser profile may be able to read them. The chat's session-only and deletion controls do not clear journal data.
           Avoid saving sensitive information on a shared device. Voice playback depends on your browser and selected voice service.
@@ -1750,21 +1532,21 @@ export default function AdvancedCalmJournal() {
 
       {/* Voice Settings */}
       {voices.length > 0 && (
-        <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-          <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+        <div className="paper-sheet p-6">
+          <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
             <Volume2 size={20} className="mr-2 text-blue-600" />
             Voice Settings
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-600 mb-2">Preferred Voice</label>
+              <label className="block text-sm text-ink-700 mb-2">Preferred Voice</label>
               <select
                 value={selectedVoice?.name || ''}
                 onChange={(e) => {
                   const voice = voices.find(v => v.name === e.target.value);
                   setSelectedVoice(voice);
                 }}
-                className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
+                className="w-full px-3 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
               >
                 {voices.map(voice => (
                   <option key={voice.name} value={voice.name}>
@@ -1783,32 +1565,19 @@ export default function AdvancedCalmJournal() {
       )}
 
       {/* Writing Preferences */}
-      <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
           <Edit3 size={20} className="mr-2 text-indigo-600" />
           Writing Preferences
         </h3>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-slate-600 mb-2">Theme</label>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
-            >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="sepia">Sepia</option>
-              <option value="forest">Forest</option>
-            </select>
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-slate-600 mb-2">Default Font Size</label>
+              <label className="block text-sm text-ink-700 mb-2">Default Font Size</label>
               <select
                 value={fontSize}
                 onChange={(e) => setFontSize(e.target.value)}
-                className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
+                className="w-full px-3 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
               >
                 <option value="14px">Small</option>
                 <option value="16px">Medium</option>
@@ -1816,41 +1585,23 @@ export default function AdvancedCalmJournal() {
                 <option value="20px">Extra Large</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm text-slate-600 mb-2">Line Height</label>
-              <select
-                value={lineHeight}
-                onChange={(e) => setLineHeight(e.target.value)}
-                className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
-              >
-                <option value="1.4">Compact</option>
-                <option value="1.6">Normal</option>
-                <option value="1.8">Relaxed</option>
-                <option value="2.0">Spacious</option>
-              </select>
-            </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-600 mb-2">Font Family</label>
+            <label className="block text-sm text-ink-700 mb-2">Writing style</label>
             <select
-              value={fontFamily}
+              value={pageFontKey}
               onChange={(e) => setFontFamily(e.target.value)}
-              className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
+              className="w-full px-3 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
             >
-              <option value="Georgia">Georgia (Serif)</option>
-              <option value="Times New Roman">Times New Roman (Serif)</option>
-              <option value="Arial">Arial (Sans-serif)</option>
-              <option value="Helvetica">Helvetica (Sans-serif)</option>
-              <option value="Courier New">Courier New (Monospace)</option>
-              <option value="Palatino">Palatino (Serif)</option>
+              {Object.entries(pageFonts).map(([value, f]) => <option key={value} value={value}>{f.label}</option>)}
             </select>
           </div>
         </div>
       </div>
 
       {/* Prompt Management */}
-      <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
           <Sparkles size={20} className="mr-2 text-yellow-600" />
           Custom Prompts
         </h3>
@@ -1861,12 +1612,12 @@ export default function AdvancedCalmJournal() {
               value={currentTag}
               onChange={(e) => setCurrentTag(e.target.value)}
               placeholder="Add your own writing prompt..."
-              className="flex-1 px-4 py-2 bg-white/80 rounded-lg border border-slate-200"
+              className="flex-1 px-4 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
               onKeyPress={(e) => e.key === 'Enter' && addCustomPrompt()}
             />
             <button
               onClick={addCustomPrompt}
-              className="px-4 py-2 bg-yellow-200 text-yellow-800 rounded-lg hover:bg-yellow-300 transition-colors"
+              className="px-4 py-2 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors"
             >
               <Plus size={16} />
             </button>
@@ -1875,7 +1626,7 @@ export default function AdvancedCalmJournal() {
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {customPrompts.map((prompt, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                  <span className="text-sm text-slate-700 italic">"{prompt}"</span>
+                  <span className="text-sm text-ink-800 italic">"{prompt}"</span>
                   <button
                     onClick={() => removeCustomPrompt(index)}
                     className="text-red-400 hover:text-red-600 transition-colors ml-3"
@@ -1890,46 +1641,46 @@ export default function AdvancedCalmJournal() {
       </div>
 
       {/* Goal Settings */}
-      <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
           <Target size={20} className="mr-2 text-green-600" />
           Default Goals
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-slate-600 mb-2">Default Word Goal</label>
+            <label className="block text-sm text-ink-700 mb-2">Default Word Goal</label>
             <input
               type="number"
               value={wordGoal || ''}
               onChange={(e) => setWordGoal(e.target.value ? parseInt(e.target.value) : null)}
               placeholder="e.g., 200"
-              className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
+              className="w-full px-3 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
             />
           </div>
           <div>
-            <label className="block text-sm text-slate-600 mb-2">Default Time Goal (minutes)</label>
+            <label className="block text-sm text-ink-700 mb-2">Default Time Goal (minutes)</label>
             <input
               type="number"
               value={timeGoal || ''}
               onChange={(e) => setTimeGoal(e.target.value ? parseInt(e.target.value) : null)}
               placeholder="e.g., 15"
-              className="w-full px-3 py-2 bg-white/80 rounded-lg border border-slate-200"
+              className="w-full px-3 py-2 rounded-lg border-2 border-ink-900/20 bg-sheet"
             />
           </div>
         </div>
       </div>
 
       {/* Data Management */}
-      <div className="p-6 bg-white/70 rounded-2xl border border-slate-200/50">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
-          <Settings size={20} className="mr-2 text-slate-600" />
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
+          <Settings size={20} className="mr-2 text-ink-700" />
           Data Management
         </h3>
         <div className="space-y-4">
           <div className="flex gap-4">
             <button
               onClick={() => exportData('json')}
-              className="flex-1 px-4 py-3 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-300 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-3 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors flex items-center justify-center gap-2"
             >
               <Download size={16} />
               Backup All Data
@@ -1958,7 +1709,7 @@ export default function AdvancedCalmJournal() {
                 };
                 input.click();
               }}
-              className="flex-1 px-4 py-3 bg-green-200 text-green-800 rounded-lg hover:bg-green-300 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-3 rounded-lg border-2 border-ink-900 bg-sheet font-bold text-ink-900 hover:bg-marigold-100 transition-colors flex items-center justify-center gap-2"
             >
               <Upload size={16} />
               Restore Backup
@@ -1975,7 +1726,7 @@ export default function AdvancedCalmJournal() {
                 showNotification('All data cleared', 'success');
               }
             }}
-            className="w-full px-4 py-3 bg-red-200 text-red-800 rounded-lg hover:bg-red-300 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 rounded-lg border-2 border-red-700 bg-sheet font-bold text-red-800 hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
           >
             <Trash2 size={16} />
             Clear All Data
@@ -1984,36 +1735,17 @@ export default function AdvancedCalmJournal() {
       </div>
 
       {/* About */}
-      <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
-        <h3 className="text-lg font-medium text-slate-700 mb-4 flex items-center">
+      <div className="paper-sheet p-6">
+        <h3 className="text-xl font-bold text-ink-900 mb-4 flex items-center">
           <HelpCircle size={20} className="mr-2 text-indigo-600" />
           About This Journal
         </h3>
-        <div className="space-y-3 text-sm text-slate-600">
+        <div className="space-y-3 text-sm text-ink-700">
           <p>
-            This advanced digital journal uses AI-powered sentiment analysis and therapeutic techniques 
-            to support your mental health and personal growth journey.
+            A private notebook in your browser. The optional counts look for certain words in what you write; they are rough and are not a measure of how you are.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <Shield size={14} className="text-green-600" />
-              <span>Privacy First</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Brain size={14} className="text-indigo-600" />
-              <span>AI Enhanced</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Activity size={14} className="text-purple-600" />
-              <span>Real-time Analysis</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Heart size={14} className="text-pink-600" />
-              <span>Mental Health Focused</span>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 italic">
-            Version 2.0 • All analysis happens locally • No data is sent to external servers
+          <p>
+            Writing and the counts happen on this device, and nothing is sent to Relevia. Reading aloud uses your browser&apos;s voices, and some browsers send that text to their own speech service.
           </p>
         </div>
       </div>
@@ -2021,312 +1753,60 @@ export default function AdvancedCalmJournal() {
   );
 
   return (
-    <div className={`min-h-screen transition-all duration-500 ${
-      theme === 'dark' ? 'bg-gray-900 text-white' : 
-      theme === 'sepia' ? 'bg-amber-50' : 
-      theme === 'forest' ? 'bg-green-50' :
-      'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
-    }`}>
-      {/* Floating background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 text-blue-200 opacity-30 animate-pulse">
-          <Cloud size={40} />
-        </div>
-        <div className="absolute top-40 right-20 text-purple-200 opacity-40 animate-bounce" style={{ animationDuration: '4s' }}>
-          <Flower size={30} />
-        </div>
-        <div className="absolute bottom-32 left-20 text-indigo-200 opacity-25 animate-pulse" style={{ animationDelay: '2s' }}>
-          <Moon size={35} />
-        </div>
-        <div className="absolute top-1/2 right-1/4 text-pink-200 opacity-20 animate-pulse" style={{ animationDelay: '3s' }}>
-          <Star size={25} />
-        </div>
-      </div>
-
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-6">
-        <div className="w-full max-w-6xl">
-          {/* Enhanced Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <h1 className={`text-4xl font-light tracking-wide ${
-                theme === 'dark' ? 'text-white' : 'text-slate-700'
-              }`}>
-                Tour personal journaling diary
-              </h1>
-              <div className="flex gap-2">
-                <div className="p-2 bg-white/60 rounded-full backdrop-blur-sm" title="AI-Powered Analytics">
-                  <Brain size={20} className="text-indigo-600" />
-                </div>
-                <div className="p-2 bg-white/60 rounded-full backdrop-blur-sm" title="Privacy Protected">
-                  <Shield size={20} className="text-green-600" />
-                </div>
-                <div className="p-2 bg-white/60 rounded-full backdrop-blur-sm" title="Voice Enabled">
-                  <Volume2 size={20} className="text-blue-600" />
-                </div>
-                <div className="p-2 bg-white/60 rounded-full backdrop-blur-sm" title={`${streakCount} Day Streak`}>
-                  <Star size={20} className="text-yellow-600" />
-                </div>
-              </div>
-            </div>
-            <p className={`text-lg font-light italic ${
-              theme === 'dark' ? 'text-gray-300' : 'text-slate-500'
-            }`}>
-              Local journaling with optional reflection prompts
-            </p>
-          </div>
-
-          {/* Main Application Container */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-            {/* Navigation Tabs */}
-            <div className="flex border-b border-slate-200/50 bg-white/60 backdrop-blur-sm">
-              {[
-                { id: 'write', label: 'Write', icon: Edit3 },
-                { id: 'entries', label: 'My Entries', icon: BookOpen, badge: entries.length },
-                { id: 'analytics', label: 'Insights', icon: BarChart3 },
-                { id: 'settings', label: 'Settings', icon: Settings }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 px-6 py-4 flex items-center justify-center gap-2 font-medium transition-all relative ${
-                    activeTab === tab.id
-                      ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-300'
-                      : 'text-slate-600 hover:bg-white/60'
-                  }`}
-                >
-                  <tab.icon size={18} />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {tab.badge && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {tab.badge > 99 ? '99+' : tab.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab Content */}
-            <div className="p-8 min-h-[600px] bg-gradient-to-br from-white/40 to-white/20">
-              {activeTab === 'write' && renderWriteTab()}
-              {activeTab === 'entries' && renderEntriesTab()}
-              {activeTab === 'analytics' && renderAnalyticsTab()}
-              {activeTab === 'settings' && renderSettingsTab()}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-8 text-center">
-            <p className={`text-sm font-light italic ${
-              theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
-            }`}>
-              Journal entries may be stored in this browser. Avoid including information you do not want saved on this device.
-            </p>
-            <div className="flex justify-center items-center gap-6 mt-4 text-xs text-slate-400">
-              <div className="flex items-center gap-1">
-                <Shield size={12} className="text-green-500" />
-                Privacy First
-              </div>
-              <div className="flex items-center gap-1">
-                <Brain size={12} className="text-indigo-500" />
-                AI Enhanced
-              </div>
-              <div className="flex items-center gap-1">
-                <Activity size={12} className="text-purple-500" />
-                Real-time Analytics
-              </div>
-              <div className="flex items-center gap-1">
-                <Heart size={12} className="text-pink-500" />
-                Mental Health Focused
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Access Floating Action Button */}
-      {activeTab !== 'write' && (
-        <button
-          onClick={() => setActiveTab('write')}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-full shadow-2xl hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-110 flex items-center justify-center z-50 group"
-          title="Quick Write"
-        >
-          <Edit3 size={20} />
-          <div className="absolute -top-12 right-0 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Quick Write
-          </div>
-        </button>
-      )}
-
-      {/* Accessibility Features */}
-      <div className="fixed bottom-4 left-4 flex flex-col gap-2 z-40">
-        <button
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="p-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors group"
-          title="Toggle Fullscreen"
-        >
-          <Monitor size={16} className="text-slate-600" />
-          <div className="absolute right-14 top-1/2 transform -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Fullscreen
-          </div>
-        </button>
-        <button
-          onClick={() => {
-            const root = document.documentElement;
-            const currentSize = parseFloat(getComputedStyle(root).fontSize);
-            root.style.fontSize = currentSize > 16 ? '16px' : '18px';
-          }}
-          className="p-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors group"
-          title="Toggle Font Size"
-        >
-          <Type size={16} className="text-slate-600" />
-          <div className="absolute right-14 top-1/2 transform -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Font Size
-          </div>
-        </button>
-      </div>
-
-      {/* Keyboard Shortcuts Help */}
-      <div className="fixed top-4 left-4 z-40">
-        <button
-          onClick={() => {
-            const shortcuts = `Keyboard Shortcuts:
-• Ctrl/Cmd + S: Save entry
-• Ctrl/Cmd + N: New entry  
-• Ctrl/Cmd + F: Search entries
-• Escape: Exit focus mode
-• Tab: Next field
-• Shift + Tab: Previous field`;
-            alert(shortcuts);
-          }}
-          className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors group"
-          title="Keyboard Shortcuts"
-        >
-          <HelpCircle size={16} className="text-slate-600" />
-          <div className="absolute left-14 top-1/2 transform -translate-y-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            Help
-          </div>
-        </button>
-      </div>
-
-      {/* Global Keyboard Event Handler */}
+    <TechniqueShell icon="journaling" color="blue" note="Write it down" title="Journaling" wide backdrop={<InkDesk lamp={pageFocused || text.length > 0} />}
+      intro="A private page to write on. Use a prompt if a blank page is hard, or ignore it. Entries stay in this browser unless you export them.">
       <div
-        className="sr-only"
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
-            if (activeTab === 'write' && text.trim()) {
-              saveEntry();
-            }
+            if (activeTab === 'write' && text.trim()) saveEntry();
           }
-          if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            setActiveTab('write');
-            setText('');
-            setTitle('');
-            setTags([]);
-            setMood({ energy: null, emotional: null, physical: null });
-          }
-          if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-            e.preventDefault();
-            setActiveTab('entries');
-            setTimeout(() => {
-              const searchInput = document.querySelector('input[placeholder="Search your entries..."]');
-              if (searchInput) searchInput.focus();
-            }, 100);
-          }
-          if (e.key === 'Escape' && focusMode) {
-            setFocusMode(false);
-          }
+          if (e.key === 'Escape' && focusMode) setFocusMode(false);
         }}
-        tabIndex={0}
-        aria-label="Global keyboard shortcuts"
-      />
+      >
+        {/* Tabs */}
+        <div className="mb-6 flex flex-wrap gap-x-6 gap-y-2 border-b-2 border-ink-900/10 pb-3" role="tablist" aria-label="Journal sections">
+          {[
+            { id: 'write', label: 'Write', icon: Edit3 },
+            { id: 'entries', label: entries.length ? `My entries (${entries.length})` : 'My entries', icon: BookOpen },
+            { id: 'analytics', label: 'Counts', icon: BarChart3 },
+            { id: 'settings', label: 'Settings and data', icon: Settings },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative inline-flex items-center gap-2 py-1 text-lg font-bold ${activeTab === tab.id ? 'text-ink-900' : 'text-ink-700/80 hover:text-ink-900'}`}
+            >
+              <tab.icon size={18} aria-hidden="true" />
+              {tab.label}
+              {activeTab === tab.id && (
+                <Motion.span layoutId="journal-tab" aria-hidden="true" className="absolute inset-x-0 -bottom-[14px] h-1 rounded-full bg-[#3E6FD8]"
+                  transition={{ type: 'spring', stiffness: 400, damping: 34 }} />
+              )}
+            </button>
+          ))}
+        </div>
 
-      {/* Custom Styles */}
-      <style jsx="true">{`
-        .animate-gradient {
-          background-size: 200% 200%;
-          animation: gradient 8s ease infinite;
-        }
-        
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        
-        .writing-flow {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .writing-flow:focus {
-          transform: scale(1.01);
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        }
-        
-        .mood-selected {
-          animation: moodSelect 0.3s ease-out;
-        }
-        
-        @keyframes moodSelect {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-          100% { transform: scale(1.05); }
-        }
-        
-        .intervention-enter {
-          animation: slideInRight 0.5s ease-out;
-        }
-        
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #6366f1;
-          cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #6366f1;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: rgba(99, 102, 241, 0.3);
-          border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(99, 102, 241, 0.5);
-        }
+        <div role="tabpanel">
+          {activeTab === 'write' && renderWriteTab()}
+          {activeTab === 'entries' && renderEntriesTab()}
+          {activeTab === 'analytics' && renderAnalyticsTab()}
+          {activeTab === 'settings' && renderSettingsTab()}
+        </div>
+
+        <p className="mt-10 text-sm leading-relaxed text-ink-700">
+          Journal entries and drafts are saved in this browser. Anyone using this browser profile may be able to read them, so avoid writing anything you would not want kept on this device. Ctrl+S saves an entry.
+        </p>
+      </div>
+
+      <style>{`
+        .intervention-enter { animation: slideInRight 0.4s ease-out; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+        @media (prefers-reduced-motion: reduce) { .intervention-enter { animation: none; } }
       `}</style>
-    </div>
+    </TechniqueShell>
   );
 }

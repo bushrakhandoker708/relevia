@@ -1,129 +1,20 @@
-import { Link } from 'react-router-dom';
-import { motion as Motion } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
+import { TechniqueSphere } from './CopingTechniques/TechniqueShell';
 
+// A quiet shortcut to the coping techniques, on every page. It used to spin and pulse
+// constantly; for someone who is already panicking that is the opposite of helpful.
 function QuickHelpButton() {
-  const buttonVariants = {
-    idle: {
-      width: 64,
-      height: 64,
-      borderRadius: 9999,
-    },
-    hover: {
-      width: 192,
-      height: 64,
-      borderRadius: 16,
-    },
-  };
-
-  const iconVariants = {
-    idle: {
-      rotate: 360,
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        ease: "linear",
-      },
-    },
-    hover: {
-      rotate: 0,
-      transition: {
-        duration: 0.3,
-      },
-    },
-  };
-
-  const textVariants = {
-    idle: {
-      opacity: 0,
-      x: -10,
-    },
-    hover: {
-      opacity: 1,
-      x: 0,
-      transition: {
-        duration: 0.3,
-      },
-    },
-  };
-
+  // Hidden inside a technique: the person is already doing one, and on a phone the
+  // button would sit on top of the exercise controls.
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/coping/')) return null;
   return (
-    <Link to="/coping" className="fixed bottom-6 right-6 z-50">
-      <Motion.div
-        className="relative flex items-center justify-center bg-gradient-to-br from-accent-500 to-accent-600 shadow-lg overflow-hidden"
-        variants={buttonVariants}
-        initial="idle"
-        whileHover="hover"
-        whileTap={{ scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        layout
-      >
-        <Motion.div
-          className="absolute -inset-2 bg-accent-300/20 rounded-full"
-          animate={{
-            scale: [1, 1.1, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <Motion.div
-          className="absolute -inset-4 bg-accent-200/10 rounded-full"
-          animate={{
-            scale: [1, 1.15, 1],
-            opacity: [0.2, 0.4, 0.2],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        {[...Array(3)].map((_, i) => (
-          <Motion.div
-            key={i}
-            className="absolute w-3 h-3 bg-accent-100/50 rounded-full"
-            initial={{ opacity: 0, y: 0 }}
-            animate={{
-              y: -30,
-              opacity: [0, 0.5, 0],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              delay: i * 0.7,
-              ease: "easeOut",
-            }}
-            style={{
-              left: `${(i - 1) * 20}px`,
-              bottom: -10,
-            }}
-          />
-        ))}
-        <Motion.div variants={iconVariants}>
-          <svg
-            className="w-8 h-8 text-white"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
-            />
-          </svg>
-        </Motion.div>
-        <Motion.span
-          variants={textVariants}
-          className="text-white font-body font-bold text-xl tracking-wider ml-4 whitespace-nowrap"
-        >
-          Quick Help
-        </Motion.span>
-      </Motion.div>
+    <Link
+      to="/coping"
+      className="paper-sheet fixed bottom-4 right-3 z-40 flex items-center gap-1.5 border-2 border-sage-600 py-1.5 pl-1.5 pr-3 text-ink-900 transition-transform hover:-translate-y-0.5 sm:bottom-6 sm:right-6"
+    >
+      <TechniqueSphere icon="breathing" color="leaf" size={32} />
+      <span className="font-handwritten text-[1.35rem] font-bold leading-none">Quick calm</span>
     </Link>
   );
 }

@@ -19,6 +19,9 @@ test('benchmark records streamed usage and unloads its isolated test engine', as
   assert.equal(report.rows.filter(row => row.warmup).length, 1);
   assert.equal(report.rows[1].usage.completion_tokens, 2);
   assert.ok(report.rows[1].ttftMilliseconds >= 0);
+  // chunk timings are kept so the stream can be replayed through each release policy
+  assert.equal(report.rows[1].chunks.map(([, text]) => text).join(''), report.rows[1].response);
+  assert.ok(report.rows[1].chunks.every(([ms]) => ms >= 0));
   assert.equal(report.gpuMemoryBytes, null);
   assert.equal(unloaded, true);
 });

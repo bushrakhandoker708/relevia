@@ -4,6 +4,8 @@ Relevia is my web application for exploring supportive dialogue alongside inform
 
 The current application is a prototype. Its intended purpose does not establish that it reduces panic symptoms or provides clinically safe support. The recent implementation and documentation are agent-assisted and remain subject to my review.
 
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) explains how the app is built and the steps that led to the current design. [`docs/design/DESIGN_LOG.md`](docs/design/DESIGN_LOG.md) records the visual redesign, including the mockups I compared and why I chose the final look.
+
 ## How the chat works
 
 The React application uses WebLLM to run inference through WebGPU. The existing device-selection logic chooses between configured Llama 3.2 model tiers; curated replies provide a fallback when local inference is unavailable. This makes device capability an engineering constraint. The project still needs measurements on real devices before it can make reliable claims about download size, latency or memory use.
@@ -40,7 +42,7 @@ npm run build
 
 ## What has been verified
 
-On 21 November 2026, `npm test` passed 170 JavaScript tests: storage boundaries, inference failure behaviour, safety routing (S3) and the reply guard (G3), including a test that no point in a stream shows text the guard later rejects. The production build and the full lint also passed. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
+On 21 November 2026, `npm test` passed 202 JavaScript tests. They cover storage boundaries, inference failure behaviour, safety routing (S3), the reply guard (G3), the release policies (R0–R3), and a check that no source file contains double-encoded text. Several tests check that no point in a stream shows text the guard later rejects. The production build and the full lint also passed. The same day, a fresh clone from GitHub installed with `npm ci` and passed tests, lint and build. Browser behaviour during reloads, two open tabs, deletion during generation, model switching, network failure and GPU loss is still untested. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
 
 The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 

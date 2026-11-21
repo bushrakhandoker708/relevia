@@ -1,695 +1,162 @@
 import { Link } from 'react-router-dom';
-import React from 'react';
-import { motion as Motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import Lottie from 'lottie-react';
-import heartAnimation from '../assets/animation/heart.json';
-import Cursor from '../components/cursor';
+import { useEffect, useState } from 'react';
 import ChatbotWidget from '../components/Chatbot';
-import useCalmAnimation from '../hooks/useCalmAnimation';
-import { recordVisit, getChatContext, buildLetter } from '../services/personalLetter';
-import SplashCursor from '../components/cursor';
+import { CrayonScene } from '../components/Crayon';
+import Letter from '../components/Letter';
+import { TechniqueSphere } from '../components/CopingTechniques/TechniqueShell';
+import { buildLetter } from '../services/personalLetter';
+import { recordVisit, readActivity, smallThingFor, TECHNIQUES } from '../services/activity';
+import { affirmationsForHome } from '../services/affirmations';
 
-// Fixed scroll indicator
-const ScrollIndicator = ({ scrollY }) => {
-  const opacity = useTransform(scrollY, [0, 400], [1, 0]);
-  
-  return (
-    <Motion.div
-      className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30"
-      style={{ opacity }}
-    >
-      <Motion.div
-        className="flex flex-col items-center text-neutral-600 bg-white/90 backdrop-blur-lg border border-neutral-200 rounded-full px-4 py-3 shadow-lg"
-        animate={{ y: [0, 6, 0] }}
-        transition={{ 
-          duration: 2.5, 
-          repeat: Infinity, 
-          ease: "easeInOut",
-          type: "tween"
-        }}
-      >
-        <span className="text-xs mb-2 font-medium">Scroll</span>
-        <div className="w-6 h-10 border-2 border-primary-400/60 rounded-full relative bg-gradient-to-b from-white/5 to-transparent">
-          <Motion.div
-            className="w-1.5 h-2 bg-primary-500 rounded-full absolute left-1/2 transform -translate-x-1/2 top-2"
-            animate={{ y: [0, 12, 0] }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity, 
-              ease: "easeInOut",
-              type: "tween"
-            }}
-          />
-        </div>
-      </Motion.div>
-    </Motion.div>
-  );
-};
+// Home: the first page of the notebook. The letter changes with what someone has done on
+// the site (counts only, kept in this browser; see services/activity.js), a small thing
+// changes every day, and a sticker page fills in as techniques are tried. None of it
+// keeps score or breaks a streak: nothing is lost by staying away.
+
+const contents = [
+  { to: '/about', icon: 'info', color: 'blue', title: 'What is it actually?', desc: 'What happens in the body during a panic attack, told as a short story.' },
+  { to: '/coping', icon: 'breathing', color: 'leaf', title: 'Coping techniques', desc: 'Breathing, grounding, relaxation and other things to try, step by step.' },
+  { to: '/medication', icon: 'pill', color: 'lilac', title: 'Medication', desc: 'General information about common treatments, to talk through with a doctor.' },
+  { to: '/contact', icon: 'letter', color: 'rose', title: 'Contact', desc: 'Who made Relevia and how to get in touch.' },
+];
+
+const openChat = () => window.dispatchEvent(new Event('relevia:open-chat'));
 
 function Home() {
-  // PERF: the heart loops only while it's on screen, and not at all with "reduce motion"
-  const heart = useCalmAnimation();
-  const heartLottie = useRef(null);
+  const [visit] = useState(() => recordVisit());
+  const [activity, setActivity] = useState(() => readActivity());
+  const [letter, setLetter] = useState(() => buildLetter(visit, null, new Date(), visit));
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
   useEffect(() => {
-    if (heart.shouldPlay) heartLottie.current?.play();
-    else heartLottie.current?.pause();
-  }, [heart.shouldPlay]);
-
-  const { scrollY } = useScroll();
-  const [isLoaded, setIsLoaded] = useState(false);
-  
-  // Optimized scroll transforms
-  const heroY = useTransform(scrollY, [0, 800], [0, -200]);
-  const heroOpacity = useTransform(scrollY, [0, 600], [1, 0.8]);
-  
-  const ref = useRef(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  
-  const springX = useSpring(mouseX, { stiffness: 100, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 100, damping: 20 });
-
-  // Fixed debounce function
-  const debounce = useCallback((func, wait) => {
-    let timeout;
-    return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(null, args), wait);
-    };
+    const refresh = () => setActivity(readActivity());
+    window.addEventListener('relevia:activity', refresh);
+    return () => window.removeEventListener('relevia:activity', refresh);
   }, []);
 
-  // Optimized mouse tracking
-  const updateMousePosition = useCallback((e) => {
-    const { clientX, clientY } = e;
-    const { innerWidth, innerHeight } = window;
-    
-    
-    mouseX.set((clientX - innerWidth / 2) / 30);
-    mouseY.set((clientY - innerHeight / 2) / 30);
-  }, [mouseX, mouseY]);
-
-  useEffect(() => {
-    const debouncedMouseMove = debounce(updateMousePosition, 16);
-    window.addEventListener('mousemove', debouncedMouseMove);
-    setIsLoaded(true);
-
-    return () => {
-      window.removeEventListener('mousemove', debouncedMouseMove);
-    };
-  }, [updateMousePosition, debounce]);
-
-  // Fixed animation variants - removed complex spring animations
-  const heroVariants = {
-    initial: { opacity: 0, y: 60, scale: 0.95 },
-    animate: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: { 
-        duration: 1.8, 
-        ease: [0.22, 1, 0.36, 1],
-        staggerChildren: 0.1,
-        type: "tween"
-      } 
-    }
+  const forget = () => {
+    setActivity(readActivity());
+    setLetter(buildLetter({ count: 1 }, null, new Date(), null));
   };
 
-  const letterVariants = {
-    initial: { 
-      opacity: 0, 
-      y: 40, 
-      scale: 0.8 
-    },
-    animate: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: { 
-        duration: 1.2,
-        ease: [0.22, 1, 0.36, 1],
-        type: "tween"
-      } 
-    }
-  };
-
-  const cardVariants = {
-    initial: { opacity: 0, y: 40, scale: 0.95 },
-    animate: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: { 
-        duration: 1.5,
-        ease: [0.22, 1, 0.36, 1],
-        type: "tween"
-      } 
-    },
-    hover: { 
-      y: -8, 
-      scale: 1.02,
-      transition: { 
-        duration: 0.3,
-        ease: "easeOut",
-        type: "tween"
-      } 
-    }
-  };
-
-  // Feature cards data
-  const featureCards = useMemo(() => [
-    { 
-      to: '/about', 
-      title: 'Mindful Awareness', 
-      desc: 'Journey into the depths of tranquility with guided meditation and mindfulness practices designed to nurture your inner peace.',
-      icon: '🧘‍♀️',
-      gradient: 'from-primary-100/70 via-primary-200/50 to-secondary-200/70',
-      shadow: 'shadow-primary-200/40',
-      glowColor: 'primary-400'
-    },
-    { 
-      to: '/coping', 
-      title: 'Gentle Healing', 
-      desc: 'Discover compassionate coping strategies and evidence-based techniques to navigate life\'s challenges with grace and resilience.',
-      icon: '🌿',
-      gradient: 'from-secondary-100/70 via-secondary-200/50 to-accent-200/70',
-      shadow: 'shadow-secondary-200/40',
-      glowColor: 'secondary-400'
-    },
-    { 
-      to: '/medication', 
-      title: 'Holistic Wellness', 
-      desc: 'Access comprehensive guidance on wellness approaches, combining traditional wisdom with modern therapeutic insights.',
-      icon: '💊',
-      gradient: 'from-accent-100/70 via-accent-200/50 to-primary-200/70',
-      shadow: 'shadow-accent-200/40',
-      glowColor: 'accent-400'
-    }
-  ], []);
-
-  // Letter content - personalised for whoever is reading it (services/personalLetter.js).
-  // It shows instantly from the visit info, then fills in their name and a gentle
-  // follow-up on their last chat once that's read from this browser's storage.
-  const [visit] = useState(recordVisit);
-  const [letterContent, setLetterContent] = useState(() =>
-    buildLetter(visit, { name: '', feeling: null, chatted: false }));
-  useEffect(() => {
-    let alive = true;
-    getChatContext().then((chat) => {
-      if (alive) setLetterContent(buildLetter(visit, chat));
-    });
-    return () => { alive = false; };
-  }, [visit]);
+  // Recomputed when activity changes (for example after "Forget them").
+  const homeAffirmations = affirmationsForHome(activity, new Date());
+  const triedCount =Object.keys(activity.techniques).filter((k) => TECHNIQUES[k]).length;
 
   return (
     <>
-      <div className="sr-only">
-        <h1>Relevia - Transform Your Mental Wellness Journey | Anxiety Relief & Mindfulness</h1>
-        <p>Discover your sanctuary for mental wellness at Relevia. Expert-guided anxiety relief, mindfulness practices, and compassionate support for your healing journey.</p>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-20 focus:z-50 btn-ink">
+        Skip to main content
+      </a>
+      <ChatbotWidget />
+
+      {/* Colour behind the glass */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-[12vw] -top-[8vh] h-[48vw] w-[48vw] max-h-[640px] max-w-[640px] rounded-full bg-[#F4C6A8] opacity-45 blur-3xl" />
+        <div className="absolute -right-[10vw] top-[30vh] h-[44vw] w-[44vw] max-h-[600px] max-w-[600px] rounded-full bg-[#B9D7C2] opacity-50 blur-3xl" />
+        <div className="absolute bottom-[-10vh] left-[25vw] h-[40vw] w-[40vw] max-h-[560px] max-w-[560px] rounded-full bg-[#C9C0F2] opacity-40 blur-3xl" />
       </div>
 
-      <div className="min-h-screen relative overflow-hidden bg-white">
-        <SplashCursor className="opacity-60 " />
-        <ChatbotWidget />
-
-        {/* Hero Section */}
-        <Motion.main
-          id="main"
-          className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 pt-20 pb-24"
-          style={{ y: heroY, opacity: heroOpacity }}
-        >
-          {/* Heart animation */}
-          <Motion.div
-            variants={heroVariants}
-            initial="initial"
-            animate="animate"
-            className="mb-16 relative"
-            style={{
-              x: springX,
-              y: springY
-            }}
-          >
-            <Motion.div
-              animate={{ 
-                scale: [1, 1.05, 1], 
-                opacity: [0.9, 1, 0.9],
-              }}
-              transition={{ 
-                duration: 8, 
-                repeat: Infinity, 
-                ease: 'easeInOut',
-                type: "tween"
-              }}
-              className="relative z-10"
-            >
-              <div ref={heart.ref}>
-              <Lottie 
-                lottieRef={heartLottie}
-                autoplay={!heart.reduceMotion}
-                animationData={heartAnimation} 
-                loop={true} 
-                speed={0.3} 
-                style={{ 
-                  width: typeof window !== 'undefined' && window.innerWidth < 768 ? 280 : 400, 
-                  height: typeof window !== 'undefined' && window.innerWidth < 768 ? 280 : 400,
-                  filter: 'drop-shadow(0 8px 32px rgba(14, 165, 233, 0.2))'
-                }} 
-                className="relative z-10"
-                role="img"
-                aria-label="Animated heart representing peace and wellness"
-              />
-              </div>
-            </Motion.div>
-          </Motion.div>
-
-          {/* Main heading - Fixed letter animations */}
-          <Motion.header
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 1.5, staggerChildren: 0.1 }}
-            className="mb-20 text-center"
-          >
-            <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-heading font-bold bg-gradient-to-br from-neutral-900 via-neutral-700 to-neutral-800 bg-clip-text text-transparent leading-tight">
-              {["You're", "Safe", "Here"].map((word, wordIndex) => (
-                <Motion.div key={wordIndex} className="inline-block mx-2 sm:mx-4">
-                  {word.split('').map((letter, letterIndex) => (
-                    <Motion.span
-                      key={letterIndex}
-                      variants={letterVariants}
-                      className="inline-block hover:scale-110 hover:text-primary-600 transition-all duration-500 cursor-default"
-                      whileHover={{ 
-                        y: -10,
-                        scale: 1.15,
-                        transition: { duration: 0.3, ease: "easeOut", type: "tween" } 
-                      }}
-                    >
-                      {letter}
-                    </Motion.span>
-                  ))}
-                </Motion.div>
-              ))}
+      <main id="main" className="relative z-10 mx-auto max-w-6xl px-4 pb-32 pt-24 sm:px-6">
+        {/* Opening page */}
+        <section className="grid items-center gap-10 md:grid-cols-[1.05fr_1fr]">
+          <div>
+            <p className="margin-note text-2xl">{today}</p>
+            <h1 className="mt-2 text-[clamp(2.4rem,5.5vw,4rem)] font-bold leading-[1.02] tracking-[-0.02em] text-ink-900">
+              A quiet page to put things down.
             </h1>
-          </Motion.header>
-
-          {/* Subtitle */}
-          <Motion.div
-            initial={{ opacity: 0, y: 30 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            transition={{ delay: 2, duration: 1.8 }} 
-            className="max-w-5xl mx-auto text-center mb-24"
-          >
-            <Motion.p
-              className="text-lg sm:text-xl md:text-2xl text-neutral-600 leading-relaxed font-body mb-8"
-              animate={{ 
-                opacity: [0.8, 1, 0.8]
-              }}
-              transition={{ 
-                duration: 4, 
-                repeat: Infinity, 
-                ease: "easeInOut",
-                type: "tween"
-              }}
-            >
-              Take a moment. Breathe deeply. You've found your sanctuary.
-            </Motion.p>
-            
-            {/* Fixed divider */}
-            <Motion.div
-              className="flex items-center justify-center space-x-4"
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 2.5, duration: 1.5 }}
-            >
-              <Motion.div
-                className="h-0.5 bg-gradient-to-r from-transparent via-primary-400 to-transparent flex-1 max-w-24"
-                animate={{ scaleX: [0, 1, 0] }}
-                transition={{ 
-                  duration: 3, 
-                  repeat: Infinity, 
-                  ease: "easeInOut",
-                  type: "tween"
-                }}
-              />
-              
-              <div className="w-2 h-2 bg-gradient-radial from-primary-500 to-secondary-500 rounded-full" />
-              
-              <Motion.div
-                className="h-0.5 bg-gradient-to-r from-transparent via-secondary-400 to-transparent flex-1 max-w-24"
-                animate={{ scaleX: [0, 1, 0] }}
-                transition={{ 
-                  duration: 3, 
-                  repeat: Infinity, 
-                  ease: "easeInOut", 
-                  delay: 1.5,
-                  type: "tween"
-                }}
-              />
-            </Motion.div>
-          </Motion.div>
-
-          {/* Letter section with glass morphism */}
-          <Motion.article
-            initial={{ opacity: 0, scale: 0.95, y: 40 }}
-            whileInView={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-white/80 backdrop-blur-sm border border-neutral-200 rounded-2xl p-8 sm:p-12 md:p-16 shadow-lg max-w-5xl mx-auto my-32 relative overflow-hidden"
-            viewport={{ once: true, amount: 0.1 }}
-          >
-            {/* Letter content */}
-            <div className="relative z-10 space-y-8">
-              <Motion.h2
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.5 }}
-                className="text-2xl sm:text-3xl font-handwritten text-primary-700 text-center mb-12"
-                viewport={{ once: true }}
-              >
-                {letterContent.greeting}
-              </Motion.h2>
-
-              {[
-                letterContent.opening,
-                letterContent.breathing,
-                letterContent.grounding,
-                letterContent.encouragement,
-                letterContent.closing
-              ].map((paragraph, index) => (
-                <Motion.p
-                  key={index}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ 
-                    delay: index * 0.1, 
-                    duration: 1.5 
-                  }}
-                  className={
-                    letterContent.urgent && paragraph === letterContent.encouragement
-                      // the crisis follow-up (with helplines) gets a soft highlight so it isn't skimmed past
-                      ? "text-neutral-800 leading-relaxed text-lg sm:text-xl font-body bg-rose-50 border-l-4 border-rose-300 rounded-r-lg px-4 py-3"
-                      : "text-neutral-700 leading-relaxed text-lg sm:text-xl font-body hover:text-neutral-800 transition-colors duration-500"
-                  }
-                  viewport={{ once: true }}
-                >
-                  {paragraph}
-                </Motion.p>
-              ))}
-
-              {/* Affirmation section */}
-              <Motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1, duration: 2 }}
-                className="bg-gradient-to-br from-primary-50/80 via-secondary-50/70 to-accent-50/80 rounded-2xl p-8 border border-primary-300/20 shadow-lg my-12 relative overflow-hidden backdrop-blur-sm"
-                whileHover={{ scale: 1.01 }}
-                viewport={{ once: true }}
-              >
-                <Motion.p
-                  className="text-center text-primary-800 font-semibold text-xl sm:text-2xl font-heading"
-                  animate={{ 
-                    opacity: [0.9, 1, 0.9]
-                  }}
-                  transition={{ 
-                    duration: 4, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    type: "tween"
-                  }}
-                >
-                  {letterContent.affirmation}
-                </Motion.p>
-              </Motion.div>
-
-              {/* Signature */}
-              <Motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.5, duration: 1.5 }}
-                className="text-center pt-8 border-t border-neutral-200/40"
-                viewport={{ once: true }}
-              >
-                <p className="font-handwritten text-lg text-secondary-700 mb-2">
-                  {letterContent.signature}
-                </p>
-                <p className="font-heading text-xl text-accent-700 font-semibold">
-                  Team Relevia 💚
-                </p>
-              </Motion.div>
-            </div>
-          </Motion.article>
-
-          {/* Call-to-action section */}
-          <Motion.section
-            initial={{ opacity: 0, y: 40 }} 
-            whileInView={{ opacity: 1, y: 0 }} 
-            transition={{ duration: 2 }} 
-            className="text-center mb-24"
-            viewport={{ once: true }}
-          >
-            <Motion.h2
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-neutral-700 mb-16 font-heading font-medium"
-              animate={{ 
-                opacity: [0.9, 1, 0.9]
-              }}
-              transition={{ 
-                duration: 5, 
-                repeat: Infinity, 
-                ease: "easeInOut",
-                type: "tween"
-              }}
-            >
-              Begin Your Journey to Inner Peace
-            </Motion.h2>
-            
-            <div className="flex flex-col sm:flex-row justify-center gap-6">
-              {[
-                { 
-                  to: '/about', 
-                  text: 'Explore Resources', 
-                  primary: true,
-                  icon: '🌟',
-                  gradient: 'from-primary-500 via-primary-600 to-secondary-600'
-                },
-                { 
-                  to: '/contact', 
-                  text: 'Connect With Us', 
-                  primary: false,
-                  icon: '💝',
-                  gradient: 'from-white via-neutral-50 to-white'
-                }
-              ].map((btn, i) => (
-                <Motion.div
-                  key={i} 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 2.5 + i * 0.3, duration: 1.5 }}
-                  whileHover={{ 
-                    scale: 1.05, 
-                    y: -4,
-                    transition: { duration: 0.3, ease: "easeOut", type: "tween" }
-                  }} 
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link 
-                    to={btn.to} 
-                    className={`
-                      inline-flex items-center gap-3 px-8 py-4 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-500 backdrop-blur-lg border-2 relative overflow-hidden group
-                      ${btn.primary 
-                        ? `bg-gradient-to-r ${btn.gradient} hover:shadow-primary-500/25 text-white border-white/20 hover:border-white/40` 
-                        : `bg-gradient-to-r ${btn.gradient} hover:bg-white text-neutral-700 border-neutral-300/50 hover:border-primary-400/50 hover:shadow-neutral-300/30`
-                      }
-                    `}
-                    aria-label={`Navigate to ${btn.text.toLowerCase()}`}
-                  >
-                    <span className="text-xl">{btn.icon}</span>
-                    <span className="relative z-10">{btn.text}</span>
-                    
-                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-full ${btn.primary ? 'bg-white/10' : 'bg-primary-100/40'}`} />
-                  </Link>
-                </Motion.div>
-              ))}
-            </div>
-          </Motion.section>
-        </Motion.main>
-
-        {/* Feature cards section */}
-        <Motion.section
-          ref={ref} 
-          className="relative z-10 py-24 px-4 sm:px-6"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 2 }}
-          viewport={{ once: true }}
-        >
-          <div className="max-w-7xl mx-auto">
-            <Motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.5 }}
-              className="text-center mb-20"
-              viewport={{ once: true }}
-            >
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold text-neutral-800 mb-6">
-                Your Wellness Toolkit
-              </h2>
-              <p className="text-lg sm:text-xl text-neutral-600 max-w-3xl mx-auto leading-relaxed font-body">
-                Discover thoughtfully curated resources designed to support your mental health journey with compassion and expertise.
-              </p>
-            </Motion.div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-              {featureCards.map((item, i) => (
-                <Motion.div
-                  key={i}
-                  variants={cardVariants}
-                  initial="initial"
-                  whileInView="animate"
-                  whileHover="hover"
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.2 }}
-                  className={`
-                    bg-white/80 backdrop-blur-sm border border-neutral-200 rounded-2xl p-8 cursor-pointer shadow-lg hover:shadow-xl transition-all duration-700 group relative overflow-hidden
-                  `}
-                >
-                  {/* Background gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-30 transition-all duration-700 rounded-2xl`} />
-                  
-                  <Link to={item.to} className="relative z-10 block h-full" aria-label={`Learn more about ${item.title}`}>
-                    {/* Fixed icon animation - removed problematic rotate array */}
-                    <Motion.div
-                      className="text-5xl sm:text-6xl mb-6 group-hover:scale-110 transition-all duration-500 text-center"
-                      whileHover={{ 
-                        scale: 1.15,
-                        transition: { duration: 0.6, type: "spring", stiffness: 200 }
-                      }}
-                      role="img"
-                      aria-label={`${item.title} icon`}
-                    >
-                      {item.icon}
-                    </Motion.div>
-                    
-                    <h3 className="text-2xl sm:text-3xl text-neutral-800 mb-6 group-hover:text-neutral-900 transition-colors leading-tight font-heading font-bold text-center">
-                      {item.title}
-                    </h3>
-                    
-                    <p className="text-base sm:text-lg text-neutral-600 leading-relaxed group-hover:text-neutral-700 transition-colors mb-8 font-body text-center">
-                      {item.desc}
-                    </p>
-                    
-                    {/* Fixed CTA animation */}
-                    <Motion.div
-                      className={`flex items-center justify-center text-${item.glowColor} group-hover:text-${item.glowColor}/80 transition-all duration-500 pt-4 border-t border-neutral-200/50`}
-                      initial={{ x: 0 }}
-                      whileHover={{ x: 4 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    >
-                      <span className="text-sm font-bold mr-2 font-body">Explore More</span>
-                      <Motion.svg
-                        className="w-5 h-5" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                        animate={{ x: [0, 3, 0] }}
-                        transition={{ 
-                          duration: 2, 
-                          repeat: Infinity, 
-                          ease: "easeInOut",
-                          type: "tween"
-                        }}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </Motion.svg>
-                    </Motion.div>
-                  </Link>
-                </Motion.div>
-              ))}
+            <p className="mt-5 max-w-[34rem] text-lg leading-relaxed text-ink-700">
+              Write what&apos;s on your mind and Relevia will write back. The AI runs in your own browser,
+              so what you write is not sent to a server.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button type="button" className="btn-ink" onClick={openChat}>Start writing</button>
+              <Link to="/coping/breathing" className="btn-outline">Try a breathing exercise</Link>
             </div>
           </div>
-        </Motion.section>
+          <CrayonScene className="w-full" />
+        </section>
 
-        {/* Scroll indicator */}
-        <ScrollIndicator scrollY={scrollY} />
+        {/* The letter */}
+        <section className="mt-24" aria-label="Your letter">
+          <p className="margin-note mb-4 text-center text-2xl">{visit.isFirst ? 'Your first letter' : 'A new letter, written for this visit'}</p>
+          <Letter key={letter.letterNumber + (letter.paragraphs[0] || '')} letter={letter} onForget={forget} />
+        </section>
 
-        {/* Fixed help button */}
-        <Motion.div
-          className="fixed bottom-6 right-6 z-50"
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 4, duration: 1.2 }}
-        >
-          <Motion.button
-            className="w-14 h-14 bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 hover:from-accent-600 hover:via-accent-700 hover:to-accent-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-500 backdrop-blur-lg border-2 border-white/20 flex items-center justify-center group relative overflow-hidden"
-            whileHover={{ 
-              scale: 1.1, 
-              y: -2,
-              transition: { duration: 0.3, ease: "easeOut", type: "tween" } 
-            }}
-            whileTap={{ scale: 0.95 }}
-            aria-label="Quick help and resources"
-          >
-            <span className="text-xl font-bold font-heading relative z-10">?</span>
-            
-            <Motion.div
-              className="absolute inset-0 border-2 border-white/30 rounded-full"
-              animate={{ scale: [1, 1.3], opacity: [0.6, 0] }}
-              transition={{ 
-                duration: 2, 
-                repeat: Infinity, 
-                ease: "easeOut",
-                type: "tween"
-              }}
-            />
-          </Motion.button>
-        </Motion.div>
+        {/* Three sentences picked from how the site has been used (counts only, never words) */}
+        <section className="mx-auto mt-28 max-w-4xl" aria-labelledby="aff-title">
+          <h2 id="aff-title" className="margin-note text-center text-2xl">A few words for you</h2>
+          <ul className="mt-8 space-y-10">
+            {homeAffirmations.map((a, i) => (
+              <li key={a.text} className={i === 1 ? 'sm:pl-[18%]' : i === 2 ? 'sm:pl-[8%]' : ''}>
+                <p className="font-pencil text-base text-rose-700">{a.why}</p>
+                <p className="mt-1 text-[clamp(1.5rem,3.4vw,2.3rem)] font-bold leading-tight tracking-tight text-ink-900">
+                  <span className="bg-[linear-gradient(transparent_62%,rgba(244,170,190,0.45)_62%)]">{a.text}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-10 text-center">
+            <Link to="/coping/affirmations" className="font-bold text-ink-900 underline decoration-rose-400 decoration-2 underline-offset-4">
+              More sentences like these
+            </Link>
+          </p>
+        </section>
 
-        {/* Accessibility improvements */}
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {isLoaded && "Welcome to Relevia - Your sanctuary for mental wellness has loaded successfully."}
-        </div>
+        {/* Today's small thing: just words on the page */}
+        <section className="mx-auto mt-28 max-w-3xl text-center">
+          <p className="margin-note text-2xl">Today&apos;s small thing</p>
+          <p className="mt-3 text-[clamp(1.6rem,3.4vw,2.4rem)] font-bold leading-tight tracking-tight text-ink-900">{smallThingFor()}</p>
+          <p className="mt-3 text-sm text-ink-700">A different one every day. Only if you feel like it.</p>
+        </section>
 
-        {/* Skip navigation */}
-        <a 
-          href="#main" 
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary-600 hover:bg-primary-700 text-white px-6 py-4 rounded-xl z-50 font-bold shadow-lg transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary-300"
-        >
-          Skip to main content
-        </a>
+        {/* Sticker page: stickers only for what has been found; the rest are plain words */}
+        <section className="mx-auto mt-28 max-w-5xl" aria-labelledby="stickers-title">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ink-900/10 pb-3">
+            <h2 id="stickers-title" className="text-2xl font-bold tracking-tight text-ink-900">Your sticker page</h2>
+            <p className="text-sm text-ink-700">{triedCount} of {Object.keys(TECHNIQUES).length} found. No order, no deadline.</p>
+          </div>
+          <ul className="mt-6 flex flex-wrap items-end gap-x-8 gap-y-5">
+            {Object.entries(TECHNIQUES).map(([key, t]) => {
+              const got = activity.techniques[key] > 0;
+              return (
+                <li key={key}>
+                  <Link to={t.to} className="group flex flex-col items-center gap-1.5" aria-label={`${t.title}${got ? ', sticker found' : ', not tried yet'}`}>
+                    {got && (
+                      <span className="transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+                        <TechniqueSphere icon={key} color={t.color} size={48} />
+                      </span>
+                    )}
+                    <span className={`text-sm font-bold ${got ? 'text-ink-900' : 'text-ink-700/60 underline decoration-dotted underline-offset-4 group-hover:text-ink-900'}`}>{t.title}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
-        {/* SEO structured data */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            "name": "Relevia - Mental Wellness Journey",
-            "description": "Discover your sanctuary for mental wellness at Relevia. Expert-guided anxiety relief, mindfulness practices, and compassionate support for your healing journey.",
-            "url": "https://relevia.vercel.app/",
-            "mainEntity": {
-              "@type": "Organization",
-              "name": "Relevia",
-              "description": "Mental wellness platform with interactive therapy resources",
-              "serviceType": [
-                "Mental Health Support", 
-                "Anxiety Relief", 
-                "Mindfulness Training",
-                "Wellness Coaching"
-              ],
-              "areaServed": "Worldwide"
-            }
-          })}
-        </script>
-
-
-
-        {/* Meta tags for SEO */}
-        <div className="sr-only">
-          <meta name="description" content="Transform your mental wellness journey with Relevia's compassionate approach to anxiety relief, mindfulness practices, and therapeutic support." />
-          <meta name="keywords" content="mental health, wellness, anxiety relief, mindfulness, therapy, healing journey, stress management" />
-          <meta name="author" content="Relevia Team" />
-          <meta property="og:title" content="Relevia - Your Mental Wellness Sanctuary" />
-          <meta property="og:description" content="Begin your journey to inner peace with expert-guided resources and compassionate support." />
-          <meta property="og:url" content="https://relevia.vercel.app/" />
-          <meta property="og:type" content="website" />
-        </div>
-      </div>
+        {/* Contents: a plain list with hairlines, like a table of contents */}
+        <section className="mx-auto mt-28 max-w-5xl" aria-labelledby="contents-title">
+          <h2 id="contents-title" className="border-b border-ink-900/10 pb-3 text-2xl font-bold tracking-tight text-ink-900">In this notebook</h2>
+          <ul>
+            {contents.map((item) => (
+              <li key={item.to} className="border-b border-ink-900/10">
+                <Link to={item.to} className="group flex items-baseline justify-between gap-6 py-5">
+                  <span>
+                    <span className="block text-xl font-bold text-ink-900 group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4">{item.title}</span>
+                    <span className="mt-1 block leading-relaxed text-ink-700">{item.desc}</span>
+                  </span>
+                  <span className="shrink-0 text-2xl text-ink-700 transition-transform group-hover:translate-x-1" aria-hidden="true">&rsaquo;</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-10 text-sm leading-relaxed text-ink-700">
+            Relevia is an AI-supported tool for general information and everyday support. It is not a therapist
+            or an emergency service. If you might be in danger, contact your local emergency number.
+          </p>
+        </section>
+      </main>
     </>
   );
 }

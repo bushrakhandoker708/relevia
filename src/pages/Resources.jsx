@@ -18,8 +18,8 @@ const cardVariants = {
 
 function Resources() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-100 to-secondary-100 pt-20 pb-8 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-r from-primary-100 via-secondary-100 to-accent-100 animate-gradientShift" style={{ backgroundSize: '200% 200%' }}></div>
+    <div className="min-h-screen pt-20 pb-8 relative overflow-hidden">
+      <div className="hidden" style={{ backgroundSize: '200% 200%' }}></div>
       <div className="container mx-auto p-4 sm:p-6 md:p-8 relative z-10">
         <Motion.h1
           initial={{ opacity: 0, y: -20 }}

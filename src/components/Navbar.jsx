@@ -1,126 +1,69 @@
-import { motion as Motion, useAnimation } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FaTimes, FaBars } from 'react-icons/fa';
+import { CrayonHeart } from './Crayon';
+
+// Paper theme: the bar is the top edge of a notebook. The current page is marked with a
+// highlighter stroke, the way you would mark a heading in your own notes.
+const navLinks = [
+  { to: '/about', label: 'What is it actually?' },
+  { to: '/coping', label: 'Coping techniques' },
+  { to: '/medication', label: 'Medication' },
+  { to: '/contact', label: 'Contact' },
+];
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const controls = useAnimation();
+  const { pathname } = useLocation();
 
-  const navLinks = [
-    { to: '/about', label: 'What is it actually?' },
-    { to: '/coping', label: 'Coping Techniques' },
-    { to: '/medication', label: 'Medication' },
-    { to: '/contact', label: 'Contact' },
-  ];
-
-  const menuVariants = {
-    closed: { 
-      opacity: 0, 
-      y: '-100%',
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-        damping: 20,
-        when: 'afterChildren',
-      }
-    },
-    open: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-        damping: 20,
-        when: 'beforeChildren',
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const linkVariants = {
-    closed: { opacity: 0, y: -20 },
-    open: { opacity: 1, y: 0 },
-  };
-
+  useEffect(() => { setIsOpen(false); }, [pathname]);
   useEffect(() => {
-    if (isOpen) {
-      controls.start('open');
-    } else {
-      controls.start('closed');
-    }
-  }, [isOpen, controls]);
+    if (!isOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
+  const linkClass = ({ isActive }) =>
+    `px-1 py-1 text-[1.02rem] font-bold text-ink-900 decoration-2 underline-offset-4 hover:underline ${isActive ? 'highlight' : ''}`;
 
   return (
-    <Motion.nav
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="bg-gradient-to-r from-teal-500/50 via-blue-500/50 to-purple-500/50 p-4 fixed w-full top-0 z-20 shadow-soft "
-    >
-      <div className="container mx-auto flex justify-between items-center">
-        <Link
-          to="/"
-          className="text-neutral-50 text-2xl font-heading font-bold tracking-wide"
-        >
-          Relevia
+    <nav className="fixed top-0 z-20 w-full border-b border-white/60 bg-paper-100/60 backdrop-blur-xl backdrop-saturate-150">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link to="/" className="flex items-center gap-2 text-ink-900" aria-label="Relevia, home">
+          <CrayonHeart size={34} />
+          <span className="font-handwritten text-[2rem] font-bold leading-none">Relevia</span>
         </Link>
 
-        <div className="hidden md:flex space-x-8">
+        <div className="hidden items-center gap-7 md:flex">
           {navLinks.map((link) => (
-            <Motion.div
-              key={link.to}
-              whileHover={{ scale: 1.1, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Link
-                to={link.to}
-                className="text-neutral-50 font-body text-lg hover:text-teal-200 transition duration-300"
-              >
-                {link.label}
-              </Link>
-            </Motion.div>
+            <NavLink key={link.to} to={link.to} className={linkClass}>{link.label}</NavLink>
           ))}
         </div>
 
-        <Motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(true)}
-          className="md:hidden text-neutral-50"
+        <button
+          type="button"
+          onClick={() => setIsOpen((v) => !v)}
+          className="rounded-md p-2 text-ink-900 md:hidden"
+          aria-expanded={isOpen}
+          aria-controls="mobile-menu"
+          aria-label={isOpen ? 'Close menu' : 'Open menu'}
         >
-          <FaBars size={24} />
-        </Motion.button>
+          {isOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
+        </button>
       </div>
 
-      <Motion.div
-        variants={menuVariants}
-        initial="closed"
-        animate={controls}
-        className="fixed inset-0 bg-gradient-to-br from-teal-400/50 via-blue-400/50 to-purple-400/50 flex flex-col items-center justify-center space-y-8 z-30 "
-      >
-        {navLinks.map((link) => (
-          <Motion.div key={link.to} variants={linkVariants}>
-            <Link
-              to={link.to}
-              className="text-neutral-50 text-3xl font-body tracking-wide"
-              onClick={() => setIsOpen(false)}
-            >
+      {isOpen && (
+        <div id="mobile-menu" className="paper-sheet ruled mx-3 mb-3 px-6 pb-4 pt-2 md:hidden" style={{ paddingLeft: 64 }}>
+          {navLinks.map((link) => (
+            <NavLink key={link.to} to={link.to}
+              className={({ isActive }) => `block text-lg font-bold leading-[32px] text-ink-900 ${isActive ? 'highlight' : ''}`}>
               {link.label}
-            </Link>
-          </Motion.div>
-        ))}
-        <Motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(false)}
-          className="absolute top-6 right-6 text-neutral-50"
-          variants={linkVariants}
-        >
-          <FaTimes size={28} />
-        </Motion.button>
-      </Motion.div>
-    </Motion.nav>
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </nav>
   );
 }
 

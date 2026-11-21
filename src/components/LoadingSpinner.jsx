@@ -149,7 +149,7 @@ const LoadingSpinner = ({
           borderLeftColor: 'currentColor',
         }}
       />
-      <div className="absolute inset-2 rounded-full bg-gradient-to-br from-white/20 to-transparent" />
+      <div className="absolute inset-2 rounded-full bg-sheet" />
     </div>
   );
 

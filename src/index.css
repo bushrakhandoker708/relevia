@@ -1,23 +1,93 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@keyframes breathe {
-  0% {
-    transform: scale(0.5);
-  }
-  50% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(0.5);
-  }
+/* Paper and crayon theme. Colour scales are in tailwind.config.js. */
+:root {
+  --paper: #EEF0E9;
+  --sheet: #F8F9F4;
+  --rule: #C9D3DE;
+  --ink: #23324A;
+  --ink-2: #4F5D73;
+  --pencil: #454A53;
+  --sage: #5F7F68;
+  --marigold: #F2C14E;
+  --margin: #E3A7A1;
 }
 
-.animate-breathe {
-  animation: breathe 8s infinite;
+@layer base {
+  html { background: var(--paper); }
+  body {
+    background-color: var(--paper);
+    /* a faint paper grain, drawn once as an SVG */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.14 0 0 0 0 0.2 0 0 0 0 0.29 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    color: var(--ink);
+    font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; border-radius: 4px; }
+  ::selection { background: rgba(242, 193, 78, 0.45); }
 }
+
+@layer components {
+  /* A sheet of notebook paper. Add .ruled for lines and a margin. */
+  .paper-sheet {
+    background: var(--sheet);
+    border-radius: 6px 14px 14px 6px;
+    box-shadow: 0 1px 0 #D9DDD2, 0 18px 40px -22px rgba(35, 50, 74, 0.45);
+  }
+  /* Frosted glass, for panels that sit over the 3D backgrounds. The blur keeps text
+     readable when something moves behind it; the solid fallback covers browsers without
+     backdrop-filter and people who ask for less transparency. */
+  .glass {
+    background: rgba(250, 251, 247, 0.55);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    backdrop-filter: blur(18px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 18px 40px -24px rgba(35, 50, 74, 0.45);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass { background: var(--sheet); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass { background: var(--sheet); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+  .ruled {
+    --line: 32px;
+    background:
+      linear-gradient(var(--margin), var(--margin)) 44px 0 / 2px 100% no-repeat,
+      repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)),
+      var(--sheet);
+  }
+  /* The highlighter mark used for the current page and key phrases. */
+  .highlight { background: linear-gradient(transparent 60%, rgba(242, 193, 78, 0.7) 60% 92%, transparent 92%); }
+  .btn-ink {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--ink); color: var(--sheet); border: 2px solid var(--ink);
+    padding: .8rem 1.35rem; border-radius: 10px; font-weight: 700; text-decoration: none;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-ink:hover { transform: translateY(-1px); box-shadow: 0 6px 0 -2px rgba(35, 50, 74, .25); }
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: transparent; color: var(--ink); border: 2px solid var(--ink);
+    padding: .8rem 1.35rem; border-radius: 10px; font-weight: 700; text-decoration: none;
+  }
+  .btn-outline:hover { background: rgba(35, 50, 74, .06); }
+  .margin-note { font-family: Caveat, cursive; color: var(--sage); line-height: 1.15; }
+
+  /* Pencil writing: graphite grey with a slightly grainy edge. Used in the chat. */
+  .pencil { font-family: Kalam, Caveat, cursive; color: var(--pencil); }
+  .pencil-texture { filter: url(#pencil-grain); }
+}
+
+@keyframes breathe {
+  0% { transform: scale(0.5); }
+  50% { transform: scale(1); }
+  100% { transform: scale(0.5); }
+}
+.animate-breathe { animation: breathe 8s infinite; }
 
 @keyframes float {
   0% { transform: translateY(0); }
@@ -25,4 +95,6 @@
   100% { transform: translateY(0); }
 }
 
-
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

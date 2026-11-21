@@ -2,19 +2,16 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   PlayIcon, 
   PauseIcon, 
-  ArrowPathIcon,
-  ClockIcon,
-  CheckCircleIcon,
   ExclamationTriangleIcon,
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
   AdjustmentsHorizontalIcon,
-  SparklesIcon,
-  EyeIcon,
-  EyeSlashIcon,
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/solid';
+import TechniqueShell from './TechniqueShell';
+import { speakSoftly } from '../../services/softVoice';
+import BodyGlow from './BodyGlow';
 
 const relaxationTechniques = {
   progressive: {
@@ -277,7 +274,7 @@ const AdvancedRelaxation = () => {
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [totalTime, setTotalTime] = useState(0);
+  const [, setTotalTime] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -285,7 +282,6 @@ const AdvancedRelaxation = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [showEmergencyHelp, setShowEmergencyHelp] = useState(false);
   const [voiceSpeed, setVoiceSpeed] = useState(0.8);
 
@@ -314,22 +310,7 @@ const AdvancedRelaxation = () => {
   const speakInstruction = useCallback((text) => {
     if (!voiceEnabled || isPaused) return;
     
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = voiceSpeed;
-    utterance.pitch = 0.9;
-    utterance.volume = 0.8;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const calmVoice = voices.find(voice => 
-      voice.name.toLowerCase().includes('female') ||
-      voice.name.toLowerCase().includes('samantha') ||
-      voice.name.toLowerCase().includes('karen')
-    );
-    if (calmVoice) utterance.voice = calmVoice;
-    
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    utteranceRef.current = speakSoftly(text, { allowOnline: true, rate: voiceSpeed * 0.95 });
   }, [voiceEnabled, isPaused, voiceSpeed]);
 
   const completeSession = useCallback(() => {
@@ -439,507 +420,206 @@ const AdvancedRelaxation = () => {
     return ((currentStep + 1) / currentTechnique.steps.length) * 100;
   };
 
-  const getTimeProgress = () => {
-    if (totalTime === 0) return 0;
-    return ((totalTime - timeRemaining - (currentTechnique.steps.slice(currentStep + 1).reduce((acc, step) => acc + step.duration, 0))) / totalTime) * 100;
-  };
 
-  const bgClass = isDarkMode 
-    ? "min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-accent-900/30"
-    : "min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50";
+  const round = 'flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink-900/30 bg-white/60 text-ink-900 hover:border-ink-900 disabled:cursor-not-allowed disabled:opacity-30';
+  const uk = (s) => s.replace('Visualization', 'Visualisation');
 
-  const cardClass = isDarkMode
-    ? "bg-neutral-800/90 backdrop-blur-lg border border-neutral-700/50 text-white"
-    : "bg-white/90 backdrop-blur-lg border border-white/50 text-neutral-800";
+  // Relaxation's own look: warm amber light that slowly breathes behind the page.
+  const warmth = (
+    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #FFF6E3 0%, #FDEBD2 45%, #F9DCC4 100%)' }}>
+      <div className="relax-glow absolute left-1/2 top-[30%] h-[70vmin] w-[70vmin] -translate-x-1/2 rounded-full"
+        style={{ background: 'radial-gradient(circle, rgba(255,214,120,0.75), rgba(255,214,120,0) 70%)' }} />
+      <style>{`
+        .relax-glow { animation: relaxGlow 9s ease-in-out infinite; }
+        @keyframes relaxGlow { 0%, 100% { transform: translate(-50%, 0) scale(0.92); opacity: 0.7; } 50% { transform: translate(-50%, 0) scale(1.08); opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .relax-glow { animation: none; } }
+      `}</style>
+    </div>
+  );
 
   return (
-    <div className={`${bgClass} transition-all duration-700 p-4`}>
-      <div className="max-w-5xl mx-auto">
-        {/* Emergency Help Button */}
-        <div className="fixed top-4 right-4 z-50">
-          <button
-            onClick={() => setShowEmergencyHelp(!showEmergencyHelp)}
-            className="p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all duration-300 animate-pulse"
-            title="Crisis Support"
-          >
-            <ExclamationTriangleIcon className="w-6 h-6" />
-          </button>
-        </div>
+    <TechniqueShell icon="relaxation" color="sun" note="Let the tension go" title="Relaxation" backdrop={warmth}
+      intro="Guided exercises that take you through your body or a calm place, one step at a time. Each step has a timer, and you can pause whenever you like.">
 
-        {/* Emergency Help Panel */}
-        {showEmergencyHelp && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
-            <div className={`${cardClass} rounded-2xl p-6 max-w-md w-full`}>
-              <h3 className="text-xl font-heading font-bold mb-4 text-red-500">🆘 Crisis Support</h3>
-              <div className="space-y-4">
-                <p className="text-sm">If you're in immediate danger or having thoughts of self-harm:</p>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-                  <p className="font-bold">Crisis Hotlines:</p>
-                  <p>• If there is immediate danger, contact your local emergency service now.</p>
-                  <p>• Crisis Text Line: Text HOME to <strong>741741</strong></p>
-                  <p>• International: <strong>iasp.info/resources</strong></p>
-                </div>
-                <p className="text-sm opacity-75">
-                  These relaxation techniques are helpful but not a substitute for professional mental health care.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowEmergencyHelp(false)}
-                className="mt-4 w-full p-3 bg-neutral-500 hover:bg-neutral-600 text-white rounded-lg transition-all"
-              >
-                Close
+      {!isActive && !isCompleted && (
+        <>
+          <h2 className="text-2xl font-bold tracking-tight text-ink-900">Choose an exercise</h2>
+          {/* A list, not a grid of cards: the chosen one gets a warm bar on the left. */}
+          <div className="mt-4 border-t border-ink-900/10" role="radiogroup" aria-label="Relaxation exercises">
+            {Object.entries(relaxationTechniques).map(([key, technique]) => {
+              const on = selectedTechnique === key;
+              return (
+                <button key={key} type="button" role="radio" aria-checked={on} onClick={() => setSelectedTechnique(key)}
+                  className={`relative block w-full border-b border-ink-900/10 py-5 pl-6 pr-2 text-left transition-colors ${on ? 'bg-white/45' : 'hover:bg-white/25'}`}>
+                  <span aria-hidden="true" className={`absolute left-0 top-3 bottom-3 w-1.5 rounded-full transition-all ${on ? 'bg-marigold-500' : 'bg-transparent'}`} />
+                  <span className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                    <span className="text-xl font-bold text-ink-900">{uk(technique.name)}</span>
+                    <span className="text-sm text-ink-700">{technique.duration}, {technique.steps.length} steps</span>
+                  </span>
+                  <span className="mt-1 block max-w-2xl leading-relaxed text-ink-700">{technique.description}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-10 max-w-xl">
+            <label htmlFor="start-rating" className="block font-bold text-ink-900">
+              How tense do you feel right now? <span className="font-normal text-ink-700">(optional)</span>
+            </label>
+            <input id="start-rating" type="range" min="1" max="10" value={initialAnxiety}
+              onChange={(e) => setInitialAnxiety(parseInt(e.target.value))}
+              className="relax-range mt-4 w-full" />
+            <div className="mt-1 flex justify-between text-sm text-ink-700">
+              <span>Very calm</span><span className="text-lg font-bold text-ink-900">{initialAnxiety}/10</span><span>Very tense</span>
+            </div>
+            <p className="mt-1 text-sm text-ink-700">Only shown back to you during the session. Not saved.</p>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-5">
+            <button type="button" onClick={startTechnique} className="btn-ink">
+              <PlayIcon className="h-5 w-5" aria-hidden="true" /> Start {uk(currentTechnique.name).toLowerCase()}
+            </button>
+            <button type="button" onClick={() => setShowEmergencyHelp(!showEmergencyHelp)} aria-expanded={showEmergencyHelp}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-red-800 underline underline-offset-4">
+              <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" /> Crisis support
+            </button>
+          </div>
+        </>
+      )}
+
+      {showEmergencyHelp && (
+        <section className="mt-6 border-l-4 border-red-700 bg-white/60 p-5" aria-labelledby="crisis-support">
+          <h2 id="crisis-support" className="mb-2 text-xl font-bold text-ink-900">Crisis support</h2>
+          <p className="text-ink-800">If you&apos;re in immediate danger or having thoughts of self-harm:</p>
+          <ul className="mt-2 space-y-1 text-ink-800">
+            <li>If there is immediate danger, contact your local emergency service now.</li>
+            <li>Crisis Text Line: Text HOME to <strong>741741</strong></li>
+            <li>International: <strong>iasp.info/resources</strong></li>
+          </ul>
+          <p className="mt-3 text-sm text-ink-700">These relaxation techniques can help, but they are not a substitute for professional mental health care.</p>
+        </section>
+      )}
+
+      {isActive && (
+        <section className="grid items-center gap-8 md:grid-cols-[220px_1fr]" aria-live="polite">
+          <BodyGlow part={currentStepData.bodyPart || ''} className="mx-auto h-56 w-auto md:h-[360px]" />
+          <div className="glass p-6 sm:p-8">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="margin-note text-[1.5rem]">
+                Step {currentStep + 1} of {currentTechnique.steps.length}{currentStepData.bodyPart ? `: ${currentStepData.bodyPart}` : ''}
+              </p>
+              <p className="text-sm font-bold text-ink-800">{isPaused ? 'Paused' : `${formatTime(timeRemaining)} left`}</p>
+            </div>
+            <div className="mb-6 mt-2 h-1.5 overflow-hidden rounded bg-white/70" aria-hidden="true">
+              <div className="h-1.5 bg-marigold-500 transition-all duration-500" style={{ width: `${getStepProgress()}%` }} />
+            </div>
+            <p className="text-2xl font-bold leading-snug text-ink-900">{currentStepData.instruction}</p>
+            <p className="my-6 font-handwritten text-[1.7rem] leading-snug text-ink-800">{currentStepData.guidance}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={handlePrevStep} disabled={currentStep === 0} className={round} aria-label="Previous step">
+                <ChevronLeftIcon className="h-5 w-5" />
               </button>
+              <button type="button" onClick={pauseResume} className="btn-ink !px-5 !py-2">
+                {isPaused ? <PlayIcon className="h-5 w-5" aria-hidden="true" /> : <PauseIcon className="h-5 w-5" aria-hidden="true" />}
+                {isPaused ? 'Carry on' : 'Pause'}
+              </button>
+              <button type="button" onClick={handleNextStep} className={round} aria-label="Next step">
+                <ChevronRightIcon className="h-5 w-5" />
+              </button>
+              <button type="button" onClick={resetSession} className="text-sm font-bold text-ink-700 underline underline-offset-4">Stop</button>
             </div>
+            <p className="mt-6 text-sm text-ink-700">
+              Session time {formatTime(sessionTime)}. Starting rating {initialAnxiety}/10. If you miss an instruction, pause and step back.
+            </p>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <SparklesIcon className={`w-8 h-8 ${isDarkMode ? 'text-primary-400' : 'text-primary-500'}`} />
-            <h1 className={`text-4xl font-heading ${isDarkMode ? 'text-white' : 'text-neutral-800'}`}>
-              Scientific Relaxation Therapy
-            </h1>
-            <SparklesIcon className={`w-8 h-8 ${isDarkMode ? 'text-primary-400' : 'text-primary-500'}`} />
-          </div>
-          <p className={`text-lg ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'} max-w-2xl mx-auto`}>
-            Evidence-based relaxation techniques to calm your mind, release physical tension, and restore inner peace
+      {isCompleted && (
+        <section className="max-w-2xl">
+          <h2 className="text-3xl font-bold tracking-tight text-ink-900">That&apos;s the end of the session</h2>
+          <p className="mt-3 text-lg leading-relaxed text-ink-800">
+            You&apos;ve completed {uk(currentTechnique.name).toLowerCase()} ({formatTime(sessionTime)}). You may feel different, unchanged or uncomfortable; there is no required outcome.
           </p>
-        </div>
-
-        {/* Session Stats */}
-        {(isActive || isCompleted) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className={`${cardClass} rounded-xl p-4 text-center`}>
-              <ClockIcon className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-              <div className="text-lg font-bold">{formatTime(sessionTime)}</div>
-              <div className="text-sm opacity-75">Session Time</div>
-            </div>
-            <div className={`${cardClass} rounded-xl p-4 text-center`}>
-              <div className="text-lg font-bold">{Math.round(getStepProgress())}%</div>
-              <div className="text-sm opacity-75">Progress</div>
-            </div>
-            <div className={`${cardClass} rounded-xl p-4 text-center`}>
-              <div className="text-lg font-bold">{initialAnxiety}/10</div>
-              <div className="text-sm opacity-75">Selected starting rating</div>
-            </div>
-            <div className={`${cardClass} rounded-xl p-4 text-center`}>
-              <CheckCircleIcon className="w-6 h-6 text-green-500 mx-auto mb-2" />
-              <div className="text-lg font-bold">{completedSessions}</div>
-              <div className="text-sm opacity-75">Completed</div>
-            </div>
+          <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-2 border-y border-ink-900/10 py-4 text-ink-800">
+            <dt className="text-ink-700">Selected starting rating</dt><dd className="font-bold text-ink-900">{initialAnxiety}/10</dd>
+            <dt className="text-ink-700">Change in stress</dt><dd className="font-bold text-ink-900">Not measured</dd>
+          </dl>
+          <ul className="mt-6 space-y-1 text-ink-800">
+            <li>Notice any areas of your body that feel more relaxed now.</li>
+            <li>Take note of any changes in your breathing or heart rate.</li>
+            <li>Consider how you might carry this into the rest of your day.</li>
+          </ul>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" onClick={startTechnique} className="btn-ink">Do it again</button>
+            <button type="button" onClick={resetSession} className="btn-outline">Choose another exercise</button>
           </div>
-        )}
+          <p className="mt-6 text-sm text-ink-700">Sessions completed on this visit: {completedSessions}</p>
+        </section>
+      )}
 
-        {/* Technique Selection */}
-        {!isActive && !isCompleted && (
-          <>
-            <div className="mb-8">
-              <h2 className={`text-2xl font-heading font-bold text-center mb-6 ${isDarkMode ? 'text-white' : 'text-neutral-800'}`}>
-                Choose Your Relaxation Technique
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.entries(relaxationTechniques).map(([key, technique]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedTechnique(key)}
-                    className={`${cardClass} rounded-xl p-6 text-left transition-all duration-300 hover:scale-105 transform ${
-                      selectedTechnique === key ? `ring-2 ring-primary-500 shadow-lg bg-gradient-to-br ${technique.color} text-white` : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="text-4xl">{technique.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-heading font-bold text-lg mb-2">{technique.name}</h3>
-                        <p className="text-sm opacity-90 mb-3 leading-relaxed">{technique.description}</p>
-                        <div className="flex items-center gap-4 text-xs opacity-75">
-                          <span>⏱️ {technique.duration}</span>
-                          <span>📍 {technique.steps.length} steps</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+      <div className="mt-10">
+        <button type="button" onClick={() => setShowSettings(!showSettings)} aria-expanded={showSettings}
+          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          <AdjustmentsHorizontalIcon className="h-4 w-4" aria-hidden="true" /> Voice and timing
+        </button>
+      </div>
 
-            {/* Pre-Session Anxiety Check */}
-            <div className={`${cardClass} rounded-xl p-6 mb-8`}>
-              <h3 className="font-heading font-bold text-lg mb-4 text-center">How are you feeling right now?</h3>
-              <div className="max-w-md mx-auto">
-                <label className="block text-sm mb-2">Current stress/anxiety level:</label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={initialAnxiety}
-                  onChange={(e) => setInitialAnxiety(parseInt(e.target.value))}
-                  className="w-full accent-primary-500 mb-2"
-                />
-                <div className="flex justify-between text-xs opacity-75">
-                  <span>Very calm</span>
-                  <span className="font-bold">{initialAnxiety}/10</span>
-                  <span>Very anxious</span>
-                </div>
-                <p className="text-sm text-center mt-3 opacity-75">
-                  We'll track your progress during the session
-                </p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Main Session Interface */}
-        {!isCompleted && (
-          <div className={`${cardClass} rounded-2xl shadow-soft p-8`}>
-            {!isActive ? (
-              <div className="text-center">
-                <div className="mb-6">
-                  <div className={`inline-block p-4 rounded-full bg-gradient-to-br ${currentTechnique.color} text-white mb-4`}>
-                    <div className="text-4xl">{currentTechnique.icon}</div>
-                  </div>
-                  <h2 className="text-2xl font-heading font-bold mb-3">
-                    {currentTechnique.name}
-                  </h2>
-                  <p className="text-lg opacity-75 mb-4 max-w-2xl mx-auto">
-                    {currentTechnique.description}
-                  </p>
-                  <div className="text-sm opacity-60">
-                    Duration: {currentTechnique.duration} • {currentTechnique.steps.length} guided steps
-                  </div>
-                </div>
-                
-                <div className="flex justify-center">
-                  <button
-                    onClick={startTechnique}
-                    className={`flex items-center gap-3 px-8 py-4 bg-gradient-to-r ${currentTechnique.color} text-white rounded-xl shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl`}
-                  >
-                    <PlayIcon className="w-6 h-6" />
-                    Begin Relaxation Session
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {/* Progress Indicators */}
-                <div className="mb-8">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-medium">Step {currentStep + 1} of {currentTechnique.steps.length}</span>
-                    <span className="text-sm">{formatTime(timeRemaining)} remaining</span>
-                  </div>
-                  <div className={`w-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'} rounded-full h-3 mb-2`}>
-                    <div 
-                      className={`bg-gradient-to-r ${currentTechnique.color} h-3 rounded-full transition-all duration-500`}
-                      style={{ width: `${getStepProgress()}%` }}
-                    />
-                  </div>
-                  <div className={`w-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'} rounded-full h-1`}>
-                    <div 
-                      className="bg-gradient-to-r from-secondary-400 to-secondary-600 h-1 rounded-full transition-all duration-1000"
-                      style={{ width: `${getTimeProgress()}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Current Step Display */}
-                <div className="text-center mb-8">
-                  <div className="mb-6">
-                    <div className={`inline-block p-6 rounded-full bg-gradient-to-br ${currentTechnique.color} text-white mb-4 animate-pulse`}>
-                      <div className="text-5xl">{currentTechnique.icon}</div>
-                    </div>
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium opacity-60 uppercase tracking-wider mb-2">
-                        {currentStepData.bodyPart}
-                      </h3>
-                      <div className={`inline-block px-4 py-2 rounded-full text-sm ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-100'} opacity-80`}>
-                        Step {currentStep + 1} • {formatTime(timeRemaining)} left
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="max-w-3xl mx-auto space-y-6">
-                    <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'} border-l-4 border-primary-500`}>
-                      <p className="text-lg font-heading leading-relaxed">
-                        {currentStepData.instruction}
-                      </p>
-                    </div>
-                    
-                    <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gradient-to-r from-primary-900/30 to-secondary-900/30' : 'bg-gradient-to-r from-primary-50 to-secondary-50'} border border-primary-200/30`}>
-                      <p className={`text-base italic font-body leading-relaxed ${isDarkMode ? 'text-primary-300' : 'text-primary-700'}`}>
-                        "{currentStepData.guidance}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Breathing Visual Aid */}
-                  <div className="flex justify-center mt-8 mb-6">
-                    <div className="relative">
-                      <div 
-                        className={`w-20 h-20 rounded-full bg-gradient-to-br ${currentTechnique.color} opacity-30 animate-pulse`}
-                        style={{ animationDuration: '4s' }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${currentTechnique.color} opacity-60 animate-pulse`} 
-                             style={{ animationDuration: '3s', animationDelay: '0.5s' }} />
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-white font-bold text-sm">{timeRemaining}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Session Controls */}
-                <div className="flex justify-center items-center gap-4">
-                  <button
-                    onClick={handlePrevStep}
-                    disabled={currentStep === 0}
-                    className={`p-3 rounded-full transition-all ${
-                      currentStep === 0 
-                        ? 'opacity-30 cursor-not-allowed bg-neutral-400' 
-                        : isDarkMode 
-                        ? 'bg-neutral-700 hover:bg-neutral-600 text-white' 
-                        : 'bg-white hover:bg-neutral-50 text-neutral-700 shadow-md'
-                    }`}
-                    title="Previous Step"
-                  >
-                    <ChevronLeftIcon className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={pauseResume}
-                    className={`p-4 rounded-full transition-all shadow-lg hover:scale-105 ${
-                      isPaused 
-                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
-                        : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white'
-                    }`}
-                    title={isPaused ? "Resume" : "Pause"}
-                  >
-                    {isPaused ? <PlayIcon className="w-6 h-6" /> : <PauseIcon className="w-6 h-6" />}
-                  </button>
-                  
-                  <button
-                    onClick={handleNextStep}
-                    className={`p-3 rounded-full transition-all ${
-                      isDarkMode 
-                        ? 'bg-neutral-700 hover:bg-neutral-600 text-white' 
-                        : 'bg-white hover:bg-neutral-50 text-neutral-700 shadow-md'
-                    }`}
-                    title="Next Step"
-                  >
-                    <ChevronRightIcon className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={resetSession}
-                    className="p-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all hover:scale-105"
-                    title="Reset Session"
-                  >
-                    <ArrowPathIcon className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* Session Tips */}
-                <div className={`mt-8 p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/30' : 'bg-neutral-50'} text-center`}>
-                  <p className="text-sm opacity-75">
-                    💡 Tip: If you miss an instruction, you can pause and use the previous/next buttons to navigate
-                  </p>
-                </div>
-              </div>
+      {showSettings && (
+        <section className="mt-4 grid max-w-3xl gap-6 border-t border-ink-900/10 pt-5 sm:grid-cols-2">
+          <div>
+            <label className="flex items-center gap-3 font-bold text-ink-900">
+              <input type="checkbox" checked={voiceEnabled} onChange={(e) => setVoiceEnabled(e.target.checked)} className="h-4 w-4 accent-ink-900" />
+              {voiceEnabled ? <SpeakerWaveIcon className="h-4 w-4" aria-hidden="true" /> : <SpeakerXMarkIcon className="h-4 w-4" aria-hidden="true" />}
+              Read the steps aloud
+            </label>
+            {voiceEnabled && (
+              <label className="mt-3 block text-sm text-ink-800">
+                Voice speed: {voiceSpeed}×
+                <input type="range" min="0.6" max="1.2" step="0.1" value={voiceSpeed}
+                  onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))} className="mt-1 w-full accent-ink-900" />
+              </label>
             )}
           </div>
-        )}
-
-        {/* Completion Screen */}
-        {isCompleted && (
-          <div className={`${cardClass} rounded-2xl p-8 text-center`}>
-            <div className="mb-6">
-              <div className="text-6xl mb-4 animate-bounce">🌟</div>
-              <h2 className="text-3xl font-heading font-bold mb-4">
-                Excellent Work!
-              </h2>
-              <p className="text-lg opacity-75 mb-6 max-w-2xl mx-auto">
-                You've completed the {currentTechnique.name} session. You may feel different, unchanged or uncomfortable; there is no required outcome.
-              </p>
-            </div>
-            
-            {/* Results Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
-              <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'}`}>
-                <div className="text-2xl font-bold text-green-500">
-                  Not measured
-                </div>
-                <div className="text-sm opacity-75">Change in stress</div>
-              </div>
-              <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'}`}>
-                <div className="text-2xl font-bold text-blue-500">{formatTime(sessionTime)}</div>
-                <div className="text-sm opacity-75">Time Invested</div>
-              </div>
-              <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/50' : 'bg-neutral-50'}`}>
-                <div className="text-2xl font-bold text-purple-500">{completedSessions}</div>
-                <div className="text-sm opacity-75">Total Sessions</div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button
-                onClick={resetSession}
-                className="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-all hover:scale-105"
-              >
-                Try Another Technique
-              </button>
-              <button
-                onClick={startTechnique}
-                className="px-6 py-3 bg-secondary-500 hover:bg-secondary-600 text-white rounded-xl transition-all hover:scale-105"
-              >
-                Repeat This Session
-              </button>
-            </div>
-
-            {/* Post-session reflection */}
-            <div className={`mt-8 p-6 rounded-xl ${isDarkMode ? 'bg-gradient-to-r from-primary-900/20 to-secondary-900/20' : 'bg-gradient-to-r from-primary-50 to-secondary-50'} text-left`}>
-              <h4 className="font-heading font-bold mb-3">🌱 Reflection & Integration</h4>
-              <ul className="text-sm space-y-2 opacity-90">
-                <li>• Notice any areas of your body that feel more relaxed now</li>
-                <li>• Take note of any changes in your breathing or heart rate</li>
-                <li>• Consider how you might carry this sense of calm into your day</li>
-                <li>• Remember: regular practice makes these techniques more effective</li>
-              </ul>
-            </div>
+          <div>
+            <label className="flex items-center gap-3 font-bold text-ink-900">
+              <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} className="h-4 w-4 accent-ink-900" />
+              Move on when the timer ends
+            </label>
+            <p className="mt-1 text-sm text-ink-700">Switch this off to move between steps yourself.</p>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Settings Panel */}
-        <div className="flex justify-center my-6">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-3 rounded-full transition-all hover:scale-110 ${
-              showSettings 
-                ? 'bg-accent-500 text-white' 
-                : isDarkMode 
-                ? 'bg-neutral-700 hover:bg-neutral-600 text-white' 
-                : 'bg-white hover:bg-neutral-50 text-neutral-700 shadow-md'
-            }`}
-            title="Settings"
-          >
-            <AdjustmentsHorizontalIcon className="w-6 h-6" />
-          </button>
-        </div>
-
-        {showSettings && (
-          <div className={`${cardClass} rounded-2xl p-6 mb-6`}>
-            <h3 className="text-lg font-heading font-bold mb-6 text-center">Session Preferences</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Voice Guidance */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={voiceEnabled}
-                    onChange={(e) => setVoiceEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary-500"
-                  />
-                  <span className="flex items-center gap-2">
-                    {voiceEnabled ? <SpeakerWaveIcon className="w-4 h-4 text-primary-500" /> : <SpeakerXMarkIcon className="w-4 h-4 text-neutral-400" />}
-                    Voice Guidance
-                  </span>
-                </label>
-                
-                {voiceEnabled && (
-                  <div>
-                    <label className="block text-xs mb-1 opacity-75">Voice Speed</label>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="1.2"
-                      step="0.1"
-                      value={voiceSpeed}
-                      onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
-                      className="w-full accent-primary-500"
-                    />
-                    <div className="text-xs text-center opacity-60">{voiceSpeed}x</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Auto Advance */}
-              <div>
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={autoAdvance}
-                    onChange={(e) => setAutoAdvance(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary-500"
-                  />
-                  <span className="flex items-center gap-2">
-                    <PlayIcon className="w-4 h-4 text-secondary-500" />
-                    Auto-advance Steps
-                  </span>
-                </label>
-                <p className="text-xs opacity-60 mt-1">Automatically move to next step when timer ends</p>
-              </div>
-
-              {/* Dark Mode */}
-              <div>
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isDarkMode}
-                    onChange={(e) => setIsDarkMode(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary-500"
-                  />
-                  <span className="flex items-center gap-2">
-                    {isDarkMode ? <EyeSlashIcon className="w-4 h-4 text-neutral-300" /> : <EyeIcon className="w-4 h-4 text-neutral-600" />}
-                    Dark Mode
-                  </span>
-                </label>
-                <p className="text-xs opacity-60 mt-1">Gentle on the eyes for evening sessions</p>
-              </div>
-
-              {/* Session Stats */}
-              <div className="text-center">
-                <div className="text-2xl font-bold text-accent-500">{completedSessions}</div>
-                <div className="text-xs opacity-75">Sessions Completed</div>
-                <div className="text-xs opacity-60 mt-1">Keep building your practice!</div>
-              </div>
+      <section className="mt-16">
+        <h2 className="text-2xl font-bold tracking-tight text-ink-900">Where these come from</h2>
+        <dl className="mt-4 grid gap-x-10 gap-y-6 border-t border-ink-900/10 pt-6 sm:grid-cols-2">
+          {[
+            ['Progressive relaxation', 'Developed by Edmund Jacobson in the 1920s, this technique helps distinguish between muscle tension and relaxation, reducing physical anxiety symptoms.'],
+            ['Grounding', 'Based on mindfulness principles, grounding helps interrupt anxiety spirals by anchoring attention in the present moment through sensory awareness.'],
+            ['Visualisation', 'Uses guided imagery to activate the parasympathetic nervous system, creating real physiological changes that promote relaxation and healing.'],
+            ['Body scanning', 'Rooted in mindfulness meditation, body scanning increases body awareness and helps release unconsciously held tension and stress.'],
+          ].map(([t, d]) => (
+            <div key={t}>
+              <dt className="font-bold text-ink-900">{t}</dt>
+              <dd className="mt-1 leading-relaxed text-ink-700">{d}</dd>
             </div>
-          </div>
-        )}
+          ))}
+        </dl>
+        <p className="mt-6 text-sm leading-relaxed text-ink-700">
+          These are wellness practices, not a substitute for professional treatment. If you&apos;re experiencing persistent anxiety, depression or other mental health concerns, please consider talking to a qualified healthcare provider.
+        </p>
+      </section>
 
-        {/* Educational Information */}
-        <div className={`${cardClass} rounded-2xl p-6 text-center`}>
-          <h3 className="text-lg font-heading font-bold mb-4">🧠 The Science Behind Relaxation</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-            <div className="space-y-2">
-              <h4 className="font-medium text-primary-600 dark:text-primary-400">Progressive Relaxation</h4>
-              <p className="opacity-75">Developed by Edmund Jacobson in the 1920s, this technique helps distinguish between muscle tension and relaxation, reducing physical anxiety symptoms.</p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-secondary-600 dark:text-secondary-400">Grounding Techniques</h4>
-              <p className="opacity-75">Based on mindfulness principles, grounding helps interrupt anxiety spirals by anchoring attention in the present moment through sensory awareness.</p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-accent-600 dark:text-accent-400">Visualization</h4>
-              <p className="opacity-75">Uses guided imagery to activate the parasympathetic nervous system, creating real physiological changes that promote relaxation and healing.</p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-neutral-600 dark:text-neutral-400">Body Scanning</h4>
-              <p className="opacity-75">Rooted in mindfulness meditation, body scanning increases body awareness and helps release unconsciously held tension and stress.</p>
-            </div>
-          </div>
-          
-          <div className={`mt-6 p-4 rounded-xl ${isDarkMode ? 'bg-neutral-700/30' : 'bg-neutral-50'} text-xs opacity-75`}>
-            <p className="mb-2">
-              <strong>Note:</strong> These techniques are evidence-based wellness practices but are not substitutes for professional mental health treatment.
-            </p>
-            <p>
-              If you're experiencing persistent anxiety, depression, or other mental health concerns, please consider consulting with a qualified healthcare provider.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+      <style>{`
+        .relax-range { -webkit-appearance: none; appearance: none; height: 10px; border-radius: 999px;
+          background: linear-gradient(90deg, #8FCB9B, #F4D06F 55%, #EE9A6B); }
+        .relax-range::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 999px;
+          background: #fff; border: 3px solid #2B2D42; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; }
+        .relax-range::-moz-range-thumb { width: 24px; height: 24px; border-radius: 999px; background: #fff; border: 3px solid #2B2D42; cursor: pointer; }
+        .relax-range:focus-visible { outline: 2px dashed #2B2D42; outline-offset: 6px; }
+      `}</style>
+    </TechniqueShell>
   );
 };
 

@@ -142,7 +142,7 @@ class ErrorBoundary extends React.Component {
     // Show retry loading state
     if (isRetrying) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center p-4">
+        <div className="min-h-screen flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-soft p-8 max-w-md w-full text-center">
             <div className="animate-spin w-8 h-8 border-3 border-primary-200 border-t-primary-500 rounded-full mx-auto mb-4" />
             <h2 className="text-xl font-heading text-neutral-800 mb-2">
@@ -158,7 +158,7 @@ class ErrorBoundary extends React.Component {
 
     // Main error UI
     return (
-      <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-primary-50 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-soft max-w-2xl w-full p-8">
           {/* Error Icon and Header */}
           <div className="text-center mb-6">

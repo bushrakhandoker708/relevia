@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relevia – paper journal – home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EEF0E9;   /* recycled notebook paper, slightly green-grey */
+    --sheet: #F8F9F4;   /* a fresh page */
+    --rule:  #C9D3DE;   /* ruled lines, pale blue */
+    --ink:   #23324A;   /* fountain-pen navy */
+    --ink-2: #4F5D73;
+    --sage:  #5F7F68;
+    --marigold: #F2C14E;/* highlighter */
+    --margin: #E3A7A1;  /* the red margin line, softened */
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 18px/1.6 'Atkinson Hyperlegible', system-ui, sans-serif; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; border-radius: 4px; }
+
+  header { display: flex; align-items: center; justify-content: space-between;
+    max-width: 1200px; margin: 0 auto; padding: 28px 32px; }
+  .brand { font: 700 40px/1 'Caveat', cursive; text-decoration: none; letter-spacing: .5px; }
+  nav { display: flex; gap: 30px; font-size: 17px; }
+  nav a { text-decoration: none; padding-bottom: 4px; }
+  nav a[aria-current] { background: linear-gradient(transparent 62%, rgba(242,193,78,.75) 62% 92%, transparent 92%); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 32px 64px;
+    display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: start; }
+
+  .intro { padding-top: 40px; position: relative; }
+  .date { font: 500 26px 'Caveat', cursive; color: var(--ink-2); margin: 0 0 6px; }
+  h1 { font-size: 58px; line-height: 1.05; margin: 0 0 22px; font-weight: 700; letter-spacing: -0.5px; max-width: 13ch; }
+  .lede { font-size: 20px; color: var(--ink-2); max-width: 38ch; margin: 0 0 34px; }
+  .actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .btn { font: 700 17px 'Atkinson Hyperlegible', sans-serif; padding: 14px 22px; border-radius: 10px;
+    border: 2px solid var(--ink); text-decoration: none; display: inline-block; }
+  .btn.primary { background: var(--ink); color: var(--sheet); }
+  .btn.quiet { background: transparent; }
+  .margin-row { display: flex; align-items: flex-end; gap: 28px; margin-top: 52px; }
+  .note { transform: rotate(-4deg); margin: 0 0 40px;
+    font: 500 25px/1.15 'Caveat', cursive; color: var(--sage); max-width: 210px; }
+  .note svg { display: block; margin: 6px 0 0 60px; }
+
+  /* the notebook chat */
+  .notebook { background: var(--sheet); border-radius: 6px 14px 14px 6px; position: relative;
+    box-shadow: 0 1px 0 #d9ddd2, 0 18px 40px -22px rgba(35,50,74,.45);
+    padding: 0 0 18px; overflow: hidden; }
+  .notebook::before { /* spiral holes */
+    content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 12px;
+    background: radial-gradient(circle at 6px 18px, var(--paper) 5px, transparent 6px) 0 0/12px 36px repeat-y; }
+  .nb-head { display: flex; align-items: baseline; justify-content: space-between;
+    padding: 18px 22px 10px 56px; border-bottom: 2px solid var(--rule); }
+  .nb-head h2 { font: 700 30px/1 'Caveat', cursive; margin: 0; }
+  .nb-head p { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .status { display: inline-flex; align-items: center; gap: 6px; }
+  .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--sage); }
+  .lines { padding: 0 24px 0 56px; min-height: 360px;
+    background: linear-gradient(var(--margin), var(--margin)) 44px 0/2px 100% no-repeat,
+                repeating-linear-gradient(transparent 0 31px, var(--rule) 31px 32px); }
+  .msg { margin: 0; padding: 0; line-height: 32px; font-size: 17px; }
+  .msg.them { color: var(--ink); }
+  .msg.you { font: 500 23px/32px 'Caveat', cursive; color: var(--sage); text-align: right; }
+  .gap { height: 32px; }
+  .compose { display: flex; gap: 10px; margin: 16px 22px 0 56px; }
+  .compose input { flex: 1; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
+    border: 2px solid var(--rule); background: #fff; color: var(--ink); }
+  .compose button { font: 700 16px 'Atkinson Hyperlegible', sans-serif; padding: 0 18px; border-radius: 10px;
+    border: 2px solid var(--ink); background: var(--ink); color: var(--sheet); }
+  .fine { margin: 12px 22px 0 56px; font-size: 13px; color: var(--ink-2); }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; gap: 32px; padding: 8px 16px 48px; }
+    header { padding: 18px 16px; flex-wrap: wrap; gap: 10px; }
+    nav { gap: 16px; font-size: 15px; flex-wrap: wrap; }
+    h1 { font-size: 42px; }
+    .margin-row { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="#">Relevia</a>
+  <nav aria-label="Main">
+    <a href="#" aria-current="page">Talk</a>
+    <a href="#">What is it actually?</a>
+    <a href="#">Coping techniques</a>
+    <a href="#">Medication</a>
+    <a href="#">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <section class="intro">
+    <p class="date">Thursday, 21 November</p>
+    <h1>A quiet page to put things down.</h1>
+    <p class="lede">Write what's on your mind and Relevia will write back. It runs on your own device, and nothing you write leaves it.</p>
+    <div class="actions">
+      <a class="btn primary" href="#">Start writing</a>
+      <a class="btn quiet" href="#">Try a breathing exercise</a>
+    </div>
+    <div class="margin-row">
+    <svg class="doodle" width="320" height="150" viewBox="0 0 320 150" aria-hidden="true" fill="none" stroke="#23324A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- a mug of tea and a small plant, drawn in pen -->
+      <path d="M40 70 h70 v40 a22 22 0 0 1 -22 22 h-26 a22 22 0 0 1 -22 -22 z"/>
+      <path d="M110 80 c18 0 18 26 0 26"/>
+      <path d="M62 58 c-6 -8 6 -12 0 -22 M82 58 c-6 -8 6 -12 0 -22" stroke="#5F7F68"/>
+      <path d="M26 134 h120" />
+      <path d="M200 132 h56 l-6 -34 h-44 z"/>
+      <path d="M228 98 c0 -20 -4 -34 -22 -46 M228 98 c0 -24 8 -44 30 -54 M228 98 c-2 -14 -16 -22 -30 -20" stroke="#5F7F68"/>
+      <path d="M206 52 c8 -2 12 6 4 10 M258 44 c-6 8 2 14 8 8" stroke="#5F7F68"/>
+    </svg>
+    <p class="note">You don't need the right words. Half a sentence is fine.
+      <svg width="90" height="40" viewBox="0 0 90 40" aria-hidden="true"><path d="M4 6 C 30 4, 52 14, 70 30 M70 30 l-14 -1 M70 30 l-2 -13" fill="none" stroke="#5F7F68" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </p>
+    </div>
+  </section>
+
+  <section class="notebook" aria-label="Conversation with Relevia">
+    <div class="nb-head">
+      <h2>Talking with Relevia</h2>
+      <p class="status">Ready on this device</p>
+    </div>
+    <div class="lines">
+      <p class="msg them">Hi. What would you like to put down today?</p>
+      <div class="gap"></div>
+      <p class="msg you">i'm sad and i don't really know why</p>
+      <div class="gap"></div>
+      <p class="msg them">That sounds heavy, especially when there isn't a clear reason to point to. Has it been building for a while, or did it come on today?</p>
+      <div class="gap"></div>
+      <p class="msg you">a while i think</p>
+      <div class="gap"></div>
+    </div>
+    <form class="compose" onsubmit="return false">
+      <label class="sr" for="m" style="position:absolute;left:-9999px">Your message</label>
+      <input id="m" placeholder="Write here…">
+      <button>Send</button>
+    </form>
+    <p class="fine">An AI for everyday support, not a therapist or emergency service. If you might be in danger, contact your local emergency number.</p>
+  </section>
+</main>
+</body>
+</html>

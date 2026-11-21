@@ -102,9 +102,11 @@ export async function runBrowserBenchmark({ loadEngine, artifactMetadata, prompt
           max_tokens: 110, temperature: 0, seed: 42, stream: true,
           stream_options: { include_usage: true },
         });
+        row.chunks = []; // [milliseconds since request start, text]: replayable through each release policy
         for await (const chunk of chunks) {
           const text = chunk.choices?.[0]?.delta?.content || '';
           if (text && first === null) first = performance.now();
+          if (text) row.chunks.push([performance.now() - start, text]);
           output += text;
           if (chunk.usage) row.usage = chunk.usage;
         }

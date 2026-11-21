@@ -19,7 +19,13 @@
 import { DB } from './db.js';
 import { newSessionId } from './chatStorage.js';
 import { CrisisFilter } from './safetyS3.js';
-import { guardReply, streamSafeLength } from './replyGuard.js';
+import { guardReply } from './replyGuard.js';
+import { releaseLength } from './releasePolicy.js';
+import { startResponseTiming } from './responseTiming.js';
+
+// R2: finished, checked sentences only (guard version G3). The other policies exist for
+// the research replay; changing this is a product decision that needs the study first.
+const APP_RELEASE_POLICY = 'R2';
 import { getContextualResponse, analyzeEmotionalTone } from './memoryUtils.js';
 import { MAX_TURNS } from './consts.js';
 import { MODELS, CUSTOM_MODEL, READY_WAIT_MS, MAX_REPLY_TOKENS } from './modelConfig.js';
@@ -419,6 +425,7 @@ export async function think(text, uid = newSessionId(), onToken) {
     };
 
     let reply = '';
+    const timing = startResponseTiming(onToken ? APP_RELEASE_POLICY : 'no_stream');
     generating = true; // pauses the fluid effect while the GPU writes the reply
     updateBusy();
     try {
@@ -434,6 +441,7 @@ export async function think(text, uid = newSessionId(), onToken) {
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (!delta) continue;
         reply += delta;
+        timing.chunk(delta.length);
         // FIX (guard audits): checking only the whole text let "I cannot eng..." or half a
         // phone number reach the screen before the pattern completed. G2 then showed the
         // unfinished sentence when it looked harmless, but "Child" can become "Childline".
@@ -441,13 +449,14 @@ export async function think(text, uid = newSessionId(), onToken) {
         // time. Once a problem appears nothing more streams; the guarded reply replaces
         // the bubble at the end.
         if (blocked) continue;
-        const safe = streamSafeLength(reply, { userText: trimmedText });
-        if (safe < 0) { blocked = true; continue; }
+        const safe = timing.timePolicy(() => releaseLength(APP_RELEASE_POLICY, reply, { userText: trimmedText }));
+        if (safe < 0) { blocked = true; timing.block(); continue; }
         if (safe < holdUntil) continue;
         const shown = stripName(reply.slice(0, safe));
         if (shown.length > sent) {
           if (db.isCurrent()) onToken(shown.slice(sent));
           sent = shown.length;
+          timing.visible(sent);
         }
       }
       reply = stripName(reply).trim();
@@ -471,6 +480,11 @@ export async function think(text, uid = newSessionId(), onToken) {
     const guarded = guardReply(reply, { userText: trimmedText });
     if (guarded.reason) console.warn('[Relevia] Reply guard:', guarded.reason, guarded.action);
     reply = guarded.text;
+    const t = timing.done(guarded.action);
+    if (import.meta.env.DEV) {
+      console.log('[Relevia] Visible timing (ms): first chunk', Math.round(t.firstChunkMs ?? -1),
+        'first visible', Math.round(t.firstVisibleMs ?? -1), 'done', Math.round(t.doneMs), 'policy', t.policyMs.toFixed(1));
+    }
 
     try { await db.addTurn(trimmedText, reply); } catch { /* UI reports saving status separately */ }
 

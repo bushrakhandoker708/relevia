@@ -36,16 +36,16 @@ export default function ChatPrivacy({ sessionId, busy, legacyWarning, onReset, o
     } catch (err) { setNotice(`Could not open saved chat. ${err.message}`); }
   };
   return (
-    <details className="px-3 py-2 text-xs text-gray-700 border-b border-purple-100">
-      <summary>Chat privacy and history</summary>
+    <details className="chat-privacy max-h-56 overflow-y-auto border-b border-dashed border-rule bg-sheet px-4 py-2 text-xs leading-relaxed text-ink-800 [&_p]:mt-2">
+      <summary className="cursor-pointer font-bold text-ink-800">Chat privacy and history</summary>
       <p>By default, chat stays in this page&apos;s memory and ends when you reload or leave. Optional saving keeps messages on this browser for up to 24 hours to reopen later. Anyone using this browser can open saved chats. It is not encrypted by Relevia.</p>
       <p>Detected crisis context disables saving for the whole chat. Detection is incomplete: other sensitive messages may still be saved if you opt in. Expired records are excluded when accessed; deletion runs while this app is open.</p>
-      <label className="block my-2">
+      <label className="my-2 block font-bold">
         <input type="checkbox" checked={saving && settings.persistent} disabled={busy || settings.sensitive}
           onChange={e => choose(e.target.checked)} /> Save this chat for up to 24 hours
       </label>
-      <button type="button" className="underline mr-3" onClick={erase}>Delete all saved chats and start fresh</button>
-      <button type="button" className="underline" disabled={busy} onClick={() => {
+      <button type="button" className="mr-3 font-bold underline decoration-rose-400 decoration-2 underline-offset-2" onClick={erase}>Delete all saved chats and start fresh</button>
+      <button type="button" className="font-bold underline decoration-2 underline-offset-2" disabled={busy} onClick={() => {
         try { const items = chatStore.listSaved(); setSaved(items); setNotice(items.length ? 'Choose only your own chat; this is a shared browser, not a login.' : 'No saved chats.'); }
         catch { setNotice('Browser storage is unavailable. Chat still works in memory.'); }
       }}>Show saved chats</button>

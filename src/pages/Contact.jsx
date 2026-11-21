@@ -1,70 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { motion as Motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGlobe, faEnvelope, faPhone, faLink } from '@fortawesome/free-solid-svg-icons';
+import { faGlobe } from '@fortawesome/free-solid-svg-icons';
 import abirImg from '../assets/images/abir.jpg';
 import bushraImg from '../assets/images/bushra.png';
-
-const FloatingBackground = () => {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
-
-  // FIX: I was calling useTransform inside .map(), which breaks the rules of hooks.
-  // All 5 blobs used the same values anyway, so one pair at the top level is enough.
-  const x = useTransform(mouseX, [0, window.innerWidth], [-10, 10]);
-  const y = useTransform(mouseY, [0, window.innerHeight], [-10, 10]);
-
-  // FIX: Math.random() ran on every re-render, so the blobs jumped around each
-  // time the mouse moved. Pick the random sizes/positions once.
-  const [blobs] = useState(() =>
-    [...Array(5)].map(() => ({
-      width: Math.random() * 100 + 50,
-      height: Math.random() * 100 + 50,
-      top: Math.random() * 100,
-      left: Math.random() * 100,
-      duration: Math.random() * 10 + 10,
-    }))
-  );
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {blobs.map((b, i) => {
-        return (
-          <Motion.div
-            key={i}
-            className="absolute bg-primary-100/30 rounded-full blur-lg"
-            style={{
-              width: `${b.width}px`,
-              height: `${b.height}px`,
-              top: `${b.top}%`,
-              left: `${b.left}%`,
-              x,
-              y,
-            }}
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.6, 0.3],
-            }}
-            transition={{
-              duration: b.duration,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
 
 const StoryCard = ({ name, image, story }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -76,7 +15,7 @@ const StoryCard = ({ name, image, story }) => {
 
   return (
     <Motion.div
-      className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md border border-neutral-200"
+      className="paper-sheet p-6"
       initial="hidden"
       animate="visible"
       variants={variants}
@@ -91,10 +30,10 @@ const StoryCard = ({ name, image, story }) => {
           whileHover={{ scale: 1.1, rotate: 5 }}
           transition={{ type: 'spring', stiffness: 300 }}
         />
-        <h3 className="text-2xl font-handwritten text-primary-600">{name}</h3>
+        <h3 className="text-[1.9rem] font-handwritten font-bold text-ink-900">{name}</h3>
       </div>
       <Motion.button
-        className="mt-4 text-primary-500 font-body hover:text-primary-700"
+        className="mt-4 font-bold text-ink-800 underline decoration-2 underline-offset-4"
         onClick={() => setIsExpanded(!isExpanded)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -105,7 +44,7 @@ const StoryCard = ({ name, image, story }) => {
       <AnimatePresence>
         {isExpanded && (
           <Motion.p
-            className="mt-4 text-neutral-700 leading-relaxed"
+            className="mt-4 text-ink-700 leading-relaxed"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -124,13 +63,13 @@ const ContactItem = ({ icon, text, link }) => (
     href={link}
     target="_blank"
     rel="noopener noreferrer"
-    className="flex items-center space-x-4 p-4 rounded-xl bg-white/80 backdrop-blur-sm shadow-md border border-neutral-200 hover:bg-primary-50 transition-all duration-300"
+    className="paper-sheet flex items-center space-x-4 p-4 transition-transform hover:-translate-y-0.5"
     whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(0, 0, 0, 0.1)' }}
     whileTap={{ scale: 0.95 }}
     transition={{ type: 'spring', stiffness: 200 }}
   >
-    <FontAwesomeIcon icon={icon} className="h-6 w-6 text-primary-500" />
-    <span className="text-primary-600 font-medium text-lg">{text}</span>
+    <FontAwesomeIcon icon={icon} className="h-6 w-6 text-sage-600" />
+    <span className="text-ink-900 font-bold text-lg">{text}</span>
   </Motion.a>
 );
 
@@ -140,21 +79,6 @@ function Contact() {
       icon: faGlobe,
       text: 'Visit our website',
       link: 'https://bushraabir.github.io/empowereducation',
-    },
-    {
-      icon: faEnvelope,
-      text: 'Email us',
-      link: 'mailto:[redacted]',
-    },
-    {
-      icon: faPhone,
-      text: 'WhatsApp us',
-      link: 'https://[redacted]',
-    },
-    {
-      icon: faLink,
-      text: 'Follow us on Facebook',
-      link: 'https://www.[redacted]',
     },
   ];
 
@@ -200,15 +124,14 @@ function Contact() {
 
   return (
     <Motion.section
-      className="min-h-screen bg-gradient-to-br from-neutral-100 to-neutral-50 pt-20 pb-8 overflow-hidden relative"
+      className="min-h-screen pt-20 pb-24 overflow-hidden relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1, ease: 'easeInOut' }}
     >
-      <FloatingBackground />
       <div className="container mx-auto p-6 max-w-4xl relative z-10">
         <Motion.h1
-          className="text-5xl md:text-6xl font-handwritten text-primary-700 text-center mb-8"
+          className="text-5xl md:text-6xl font-handwritten font-bold text-ink-900 text-center mb-8"
           initial={{ opacity: 0, scale: 0.8, y: -50 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 1, ease: 'easeInOut', type: 'spring', stiffness: 100 }}
@@ -219,7 +142,7 @@ function Contact() {
           {introParagraphs.map((paragraph, index) => (
             <Motion.p
               key={index}
-              className="text-lg md:text-xl font-body text-neutral-700 leading-relaxed text-center max-w-2xl mx-auto mb-6"
+              className="text-lg md:text-xl font-body text-ink-700 leading-relaxed text-center max-w-2xl mx-auto mb-6"
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.5, duration: 1, ease: 'easeInOut' }}
@@ -234,7 +157,7 @@ function Contact() {
             transition={{ delay: 1.8, duration: 1 }}
           >
             <Motion.span
-              className="text-primary-500 text-sm font-body animate-pulse"
+              className="text-sage-700 text-sm font-body"
               animate={{ y: [0, 10, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >
@@ -245,7 +168,7 @@ function Contact() {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-1 space-y-6">
             <Motion.h2
-              className="text-3xl font-heading text-primary-600 mb-6"
+              className="text-3xl font-bold text-ink-900 mb-6"
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 1, ease: 'easeInOut' }}
@@ -257,14 +180,14 @@ function Contact() {
             ))}
           </div>
           <Motion.div
-            className="hidden md:block w-px bg-neutral-200"
+            className="hidden md:block w-px bg-rule"
             initial={{ height: 0 }}
             animate={{ height: '100%' }}
             transition={{ duration: 1.5, delay: 0.8, ease: 'easeInOut' }}
           />
           <div className="flex-1">
             <Motion.h2
-              className="text-3xl font-heading text-primary-600 mb-6"
+              className="text-3xl font-bold text-ink-900 mb-6"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 1, ease: 'easeInOut' }}
@@ -279,12 +202,12 @@ function Contact() {
           </div>
         </div>
         <Motion.div
-          className="text-center text-neutral-600 mt-12"
+          className="text-center text-ink-700 mt-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 1, ease: 'easeInOut' }}
         >
-          We typically respond within 24 hours
+          Relevia doesn&apos;t offer one-to-one contact. If you need help now, contact your local emergency service or a crisis line.
         </Motion.div>
       </div>
     </Motion.section>

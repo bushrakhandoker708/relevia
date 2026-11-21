@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relevia – crayon accents – home</title>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --page:#FBFBFE; --ink:#2B2D42; --ink-2:#5A5D78; --blue:#3E6FD8; --sun:#F4B63A;
+    --leaf:#4E9E6A; --rose:#E2647F; --lilac:#9B8CE0; --line:#E4E5EF; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:18px/1.6 'Lexend', system-ui, sans-serif; }
+  a { color:inherit; }
+  :focus-visible { outline:3px solid var(--blue); outline-offset:3px; border-radius:6px; }
+  header { display:flex; align-items:center; justify-content:space-between; max-width:1240px; margin:0 auto; padding:24px 32px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:24px; text-decoration:none; }
+  nav { display:flex; gap:28px; font-size:16px; color:var(--ink-2); }
+  nav a { text-decoration:none; }
+  nav a[aria-current] { color:var(--ink); font-weight:500; }
+
+  main { max-width:1240px; margin:0 auto; padding:8px 32px 56px; display:grid; grid-template-columns:1.1fr .9fr; gap:40px; align-items:center; }
+  h1 { font-size:54px; line-height:1.08; margin:0 0 22px; font-weight:700; letter-spacing:-1px; max-width:14ch; }
+  .underline { display:block; margin:4px 0 22px -6px; }
+  .lede { color:var(--ink-2); max-width:40ch; margin:0 0 28px; }
+  .actions { display:flex; gap:14px; flex-wrap:wrap; }
+  .btn { font:500 17px 'Lexend', sans-serif; padding:14px 24px; border-radius:999px; text-decoration:none; border:2px solid var(--ink); }
+  .btn.primary { background:var(--ink); color:#fff; }
+  .drawing { display:block; width:100%; max-width:620px; margin-top:8px; }
+
+  /* chat card: clean, with a crayon outline drawn around it */
+  .chat-wrap { position:relative; }
+  .chat-wrap > svg.frame { position:absolute; inset:-14px; width:calc(100% + 28px); height:calc(100% + 28px); pointer-events:none; }
+  .chat { position:relative; background:#fff; border-radius:22px; padding:20px 20px 16px; box-shadow:0 20px 50px -30px rgba(43,45,66,.35); }
+  .chat-head { display:flex; align-items:center; gap:12px; padding-bottom:14px; border-bottom:2px solid var(--line); }
+  .chat-head strong { font-size:19px; }
+  .chat-head span { display:block; font-size:14px; color:var(--ink-2); }
+  .ready { margin-left:auto; font-size:14px; color:var(--leaf); display:flex; align-items:center; gap:6px; }
+  .ready::before { content:''; width:9px; height:9px; border-radius:50%; background:var(--leaf); }
+  .log { display:flex; flex-direction:column; gap:12px; padding:18px 0; }
+  .b { max-width:82%; padding:12px 16px; border-radius:18px; font-size:16px; line-height:1.5; }
+  .them { background:#F1F3FC; border-bottom-left-radius:6px; }
+  .you { background:#FFF1D2; align-self:flex-end; border-bottom-right-radius:6px; }
+  .compose { display:flex; gap:10px; }
+  .compose input { flex:1; font:inherit; font-size:16px; padding:12px 16px; border:2px solid var(--line); border-radius:999px; }
+  .compose button { font:500 16px 'Lexend', sans-serif; border:0; border-radius:999px; padding:0 20px; background:var(--blue); color:#fff; }
+  .fine { font-size:13px; color:var(--ink-2); margin:12px 4px 0; }
+
+  @media (max-width:900px) {
+    header { padding:16px; flex-wrap:wrap; gap:10px; } nav { gap:14px; font-size:15px; flex-wrap:wrap; }
+    main { grid-template-columns:1fr; padding:8px 16px 48px; } h1 { font-size:40px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="#"><svg width="34" height="34" viewBox="0 0 34 34" data-crayon id="logo"></svg>Relevia</a>
+  <nav aria-label="Main"><a href="#" aria-current="page">Talk</a><a href="#">What is it actually?</a><a href="#">Coping techniques</a><a href="#">Medication</a><a href="#">Contact</a></nav>
+</header>
+<main>
+  <section>
+    <h1>Talk it through, at your own pace.</h1>
+    <p class="lede">Relevia listens and writes back. It runs on your own device, so what you share stays with you.</p>
+    <div class="actions">
+      <a class="btn primary" href="#">Start talking</a>
+      <a class="btn" href="#">Try a breathing exercise</a>
+    </div>
+    <svg class="drawing" viewBox="0 0 620 330" id="scene" role="img" aria-label="A crayon drawing of two people sitting on a bench under a tree, with the sun out"></svg>
+  </section>
+
+  <div class="chat-wrap">
+    <svg class="frame" viewBox="0 0 480 560" preserveAspectRatio="none" id="frame" aria-hidden="true"></svg>
+    <section class="chat" aria-label="Conversation with Relevia">
+      <div class="chat-head">
+        <svg width="40" height="40" viewBox="0 0 40 40" id="avatar" aria-hidden="true"></svg>
+        <div><strong>Relevia</strong><span>Runs on this device</span></div>
+        <span class="ready">Ready</span>
+      </div>
+      <div class="log">
+        <div class="b them">Hi. What's on your mind today?</div>
+        <div class="b you">i'm sad and i don't really know why</div>
+        <div class="b them">That sounds heavy, especially when there isn't a clear reason to point to. Has it been building for a while, or did it come on today?</div>
+        <div class="b you">a while i think</div>
+      </div>
+      <form class="compose" onsubmit="return false">
+        <label for="m" style="position:absolute;left:-9999px">Your message</label>
+        <input id="m" placeholder="Type here…"><button>Send</button>
+      </form>
+      <p class="fine">An AI for everyday support, not a therapist or emergency service. If you might be in danger, contact your local emergency number.</p>
+    </section>
+  </div>
+</main>
+<script>
+// Crayon helpers for the mockups: a texture filter and scribble fills.
+// Everything is drawn into existing <svg data-crayon> elements; seeded, so it looks the same each load.
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  let seed = 7;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+  // One shared filter: wobble the edges, then eat holes in the stroke like wax on paper.
+  const defs = document.createElementNS(NS, 'svg');
+  defs.setAttribute('width', 0); defs.setAttribute('height', 0); defs.setAttribute('aria-hidden', 'true');
+  defs.style.position = 'absolute';
+  defs.innerHTML = `
+    <filter id="crayon" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="5" result="wobbly"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="9" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="holes"/>
+      <feComposite in="wobbly" in2="holes" operator="in"/>
+    </filter>`;
+  document.body.prepend(defs);
+
+  // Zigzag strokes across an ellipse, like colouring in.
+  window.scribble = function (svg, { cx, cy, rx, ry, color, gap = 9, width = 7, angle = -30, opacity = .9 }) {
+    const id = 'c' + Math.floor(rand() * 1e9);
+    const clip = document.createElementNS(NS, 'clipPath');
+    clip.id = id;
+    clip.innerHTML = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/>`;
+    svg.appendChild(clip);
+    const r = Math.max(rx, ry) * 1.5;
+    let d = `M ${cx - r} ${cy - r}`;
+    for (let y = -r, flip = 0; y < r; y += gap, flip ^= 1) {
+      d += ` L ${cx + (flip ? -r : r) + (rand() - .5) * 20} ${cy + y + (rand() - .5) * 4}`;
+    }
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', color);
+    p.setAttribute('stroke-width', width);
+    p.setAttribute('stroke-linejoin', 'round');
+    p.setAttribute('opacity', opacity);
+    p.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('clip-path', `url(#${id})`);
+    g.setAttribute('filter', 'url(#crayon)');
+    g.appendChild(p);
+    svg.appendChild(g);
+  };
+
+  // A wobbly hand-drawn line, optionally closed.
+  window.crayonLine = function (svg, points, { color, width = 6, closed = false } = {}) {
+    let d = `M ${points[0][0]} ${points[0][1]}`;
+    for (let i = 1; i < points.length; i++) {
+      const [x, y] = points[i];
+      const [px, py] = points[i - 1];
+      d += ` Q ${(x + px) / 2 + (rand() - .5) * 6} ${(y + py) / 2 + (rand() - .5) * 6} ${x} ${y}`;
+    }
+    if (closed) d += ' Z';
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', color);
+    p.setAttribute('stroke-width', width);
+    p.setAttribute('stroke-linecap', 'round');
+    p.setAttribute('stroke-linejoin', 'round');
+    p.setAttribute('filter', 'url(#crayon)');
+    svg.appendChild(p);
+  };
+
+  // Points around an ellipse, slightly uneven, as a hand would draw it.
+  window.loop = function (cx, cy, rx, ry, n = 18, turns = 1.08) {
+    const pts = [];
+    for (let i = 0; i <= n * turns; i++) {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const k = 1 + (rand() - .5) * .08;
+      pts.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
+    }
+    return pts;
+  };
+})();
+</script>
+<script>
+  const $ = id => document.getElementById(id);
+  // logo: a small heart coloured in
+  scribble($('logo'), { cx: 17, cy: 18, rx: 12, ry: 11, color: '#E2647F', gap: 3, width: 2.6 });
+  crayonLine($('logo'), [[17,29],[5,17],[6,9],[12,6],[17,11],[22,6],[28,9],[29,17],[17,29]], { color: '#B8405C', width: 2 });
+  // underline under the whole headline
+  // avatar
+  scribble($('avatar'), { cx: 20, cy: 20, rx: 17, ry: 17, color: '#9B8CE0', gap: 4, width: 3 });
+  // frame around the chat
+  crayonLine($('frame'), [[20,14],[240,8],[462,16],[468,280],[460,546],[240,552],[14,544],[10,280],[20,14]], { color: '#3E6FD8', width: 4 });
+
+  const s = $('scene');
+  // sun
+  scribble(s, { cx: 520, cy: 70, rx: 42, ry: 42, color: '#F4B63A', gap: 7, width: 6 });
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; crayonLine(s, [[520 + Math.cos(a) * 56, 70 + Math.sin(a) * 56], [520 + Math.cos(a) * 80, 70 + Math.sin(a) * 80]], { color: '#F4B63A', width: 6 }); }
+  // hill
+  scribble(s, { cx: 300, cy: 360, rx: 360, ry: 90, color: '#4E9E6A', gap: 10, width: 8, angle: -12, opacity: .75 });
+  // tree
+  crayonLine(s, [[150,290],[156,220],[150,170]], { color: '#8A5A3B', width: 14 });
+  scribble(s, { cx: 150, cy: 130, rx: 78, ry: 62, color: '#4E9E6A', gap: 8, width: 7 });
+  scribble(s, { cx: 120, cy: 150, rx: 40, ry: 30, color: '#2F7D50', gap: 8, width: 6, angle: 20, opacity: .7 });
+  // bench
+  crayonLine(s, [[250,262],[390,262]], { color: '#8A5A3B', width: 8 });
+  crayonLine(s, [[262,262],[262,292]], { color: '#8A5A3B', width: 6 });
+  crayonLine(s, [[378,262],[378,292]], { color: '#8A5A3B', width: 6 });
+  // two people
+  crayonLine(s, loop(290, 196, 15, 15), { color: '#2B2D42', width: 4 });
+  crayonLine(s, [[290,212],[292,258]], { color: '#3E6FD8', width: 24 });
+  crayonLine(s, [[292,258],[312,260],[314,288]], { color: '#2B2D42', width: 5 });
+  crayonLine(s, loop(346, 192, 15, 15), { color: '#2B2D42', width: 4 });
+  crayonLine(s, [[346,208],[344,258]], { color: '#E2647F', width: 24 });
+  crayonLine(s, [[344,258],[364,260],[366,288]], { color: '#2B2D42', width: 5 });
+  crayonLine(s, [[300,228],[334,232]], { color: '#2B2D42', width: 4 }); // an arm round a shoulder
+  // a bird and a cloud
+  crayonLine(s, [[430,140],[442,132],[452,140],[462,132],[474,140]], { color: '#2B2D42', width: 3 });
+  scribble(s, { cx: 360, cy: 60, rx: 60, ry: 18, color: '#C9D4F5', gap: 6, width: 5, angle: 0 });
+</script>
+</body>
+</html>

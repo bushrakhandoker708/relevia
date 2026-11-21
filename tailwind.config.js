@@ -1,4 +1,18 @@
 /** @type {import('tailwindcss').Config} */
+
+// Paper and crayon palette (November 2026 redesign).
+// Paper, navy ink and sage come from a notebook; rose, lilac and marigold are crayon colours
+// used for drawings and accents. Tailwind's own colour names (blue, purple, pink...) are
+// remapped onto these scales so that every page, including the long technique pages,
+// moves to the same palette without rewriting each class. Red is left alone: it still
+// means danger or error.
+const ink = { 50: '#F1F4F9', 100: '#E1E8F2', 200: '#C5D2E5', 300: '#9DB2D1', 400: '#7290BB', 500: '#4F70A3', 600: '#3B5785', 700: '#2F466B', 800: '#283A57', 900: '#23324A', 950: '#1A2638' };
+const sage = { 50: '#F1F5F1', 100: '#E1EAE2', 200: '#C6D6C8', 300: '#A2BCA6', 400: '#7F9F85', 500: '#5F7F68', 600: '#4C6854', 700: '#3F5546', 800: '#34463A', 900: '#2B3A31', 950: '#1F2A23' };
+const lilac = { 50: '#F5F3FC', 100: '#EBE7F9', 200: '#D8D0F2', 300: '#BDB0E8', 400: '#9B8CE0', 500: '#7F6DCE', 600: '#6A58B5', 700: '#574893', 800: '#473C76', 900: '#3B3360', 950: '#2A2446' };
+const rose = { 50: '#FDF2F4', 100: '#FBE4E9', 200: '#F6C9D3', 300: '#EFA4B4', 400: '#E7809A', 500: '#E2647F', 600: '#C94B68', 700: '#A83D56', 800: '#8B3449', 900: '#742F40', 950: '#4F1E2A' };
+const marigold = { 50: '#FEF9EC', 100: '#FDF0CF', 200: '#FAE09E', 300: '#F6CD6A', 400: '#F2C14E', 500: '#E3A52F', 600: '#C58423', 700: '#A1651F', 800: '#83501F', 900: '#6C421D', 950: '#432811' };
+const paper = { 50: '#F8F9F4', 100: '#EEF0E9', 200: '#E0E4DC', 300: '#C9CFC6', 400: '#9EA6A4', 500: '#737D86', 600: '#4F5D73', 700: '#3D4A5E', 800: '#2E3A4F', 900: '#23324A', 950: '#1A2638' };
+
 export default {
   content: [
     "./index.html",
@@ -7,61 +21,34 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          100: '#E0F2FE',
-          200: '#BAE6FD',
-          300: '#7DD3FC',
-          400: '#38BDF8',
-          500: '#0EA5E9',
-          600: '#0284C7',
-          700: '#0369A1',
-          800: '#075985',
-          900: '#0C4A6E',
-        },
-        secondary: {
-          100: '#D1FAE5',
-          200: '#A7F3D0',
-          300: '#6EE7B7',
-          400: '#34D399',
-          500: '#10B981',
-          600: '#059669',
-          700: '#047857',
-          800: '#065F46',
-          900: '#064E3B',
-        },
-        accent: {
-          100: '#EDE9FE',
-          200: '#DDD6FE',
-          300: '#C4B5FD',
-          400: '#A78BFA',
-          500: '#8B5CF6',
-          600: '#7C3AED',
-          700: '#6D28D9',
-          800: '#5B21B6',
-          900: '#4C1D95',
-        },
-        neutral: {
-          50: '#F9FAFB',
-          100: '#F3F4F6',
-          200: '#E5E7EB',
-          300: '#D1D5DB',
-          400: '#9CA3AF',
-          500: '#6B7280',
-          600: '#4B5563',
-          700: '#374151',
-          800: '#1F2937',
-          900: '#111827',
-        },
+        primary: ink,
+        secondary: sage,
+        accent: lilac,
+        neutral: paper,
+        gray: paper, slate: paper, zinc: paper, stone: paper,
+        blue: ink, indigo: ink, sky: ink, cyan: ink,
+        green: sage, emerald: sage, teal: sage, lime: sage,
+        purple: lilac, violet: lilac, fuchsia: lilac,
+        pink: rose, rose,
+        yellow: marigold, amber: marigold, orange: marigold,
+        ink, sage, lilac, marigold,
+        sheet: '#F8F9F4',
+        rule: '#C9D3DE',
+        margin: '#E3A7A1',
+        crayon: { blue: '#3E6FD8', sun: '#F4B63A', leaf: '#4E9E6A', rose: '#E2647F', lilac: '#9B8CE0', bark: '#8A5A3B' },
         white: '#FFFFFF',
         black: '#000000',
       },
       fontFamily: {
-        heading: ['Playfair Display', 'serif'],
-        body: ['Inter', 'sans-serif'],
+        heading: ['"Atkinson Hyperlegible"', 'system-ui', 'sans-serif'],
+        body: ['"Atkinson Hyperlegible"', 'system-ui', 'sans-serif'],
+        sans: ['"Atkinson Hyperlegible"', 'system-ui', 'sans-serif'],
         handwritten: ['Caveat', 'cursive'],
+        pencil: ['Kalam', 'Caveat', 'cursive'],
       },
       boxShadow: {
-        soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        soft: '0 1px 0 #D9DDD2, 0 14px 32px -22px rgba(35, 50, 74, 0.45)',
+        page: '0 1px 0 #D9DDD2, 0 18px 40px -22px rgba(35, 50, 74, 0.45)',
       },
       keyframes: {
         fadeIn: {

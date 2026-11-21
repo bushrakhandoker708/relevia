@@ -40,11 +40,19 @@ export const GUARD_VERSION = 'G3';
 // phone-like span with 7+ digits (so "5-4-3-2-1" or "2-3 minutes" are not caught).
 // The single verified line in CRISIS_LINES (116 123, 6 digits) is allowed. Generic
 // advice ("call a crisis hotline") is not an invented contact (G2 audit fix).
-const NAMED_SERVICE = /\b(?:988|741741|85258|(?:national )?suicide prevention lifeline|lifeline australia|crisis text line|text (?:home|hello|connect|talk|shout) to|samaritans|befrienders|childline|kids help phone|mind infoline|papyrus)\b/i;
+// The list is exported so that the release policies (releasePolicy.js) hold back the
+// same terms the guard removes; the regex is built from it, so the two cannot drift.
+export const NAMED_SERVICE_TERMS = ['988', '741741', '85258', 'national suicide prevention lifeline',
+  'suicide prevention lifeline', 'lifeline australia', 'crisis text line', 'text home to', 'text hello to',
+  'text connect to', 'text talk to', 'text shout to', 'samaritans', 'befrienders', 'childline', 'kids help phone',
+  'mind infoline', 'papyrus'];
+const NAMED_SERVICE = new RegExp(`\\b(?:${NAMED_SERVICE_TERMS.join('|')})\\b`, 'i');
 const PHONE_LIKE = /\+?\(?\d[\d\s().-]{5,}\d/g;
 // The gap between the refusing verb and the action is a short adverb list, not any two
 // words: "I can't check which support services exist" (our own fixed text) is not a refusal.
-const REFUSAL = /\bI(?:'m| am)? (?:cannot|can't|can not|am unable to|unable to|am not able to|not able to|won't be able to|will not be able to|won't|will not|must not|shouldn't)\b(?:\s+(?:really|actually|currently|safely|properly|further|directly))?\s+(?:engage|discuss|talk|continue|participate|have this|help(?! but| feeling| thinking| wondering| noticing)|assist|provide|give(?! up)|share|answer|respond|support)\b/i;
+export const REFUSAL_VERBS = ['cannot', "can't", 'can not', 'am unable to', 'unable to', 'am not able to', 'not able to',
+  "won't be able to", 'will not be able to', "won't", 'will not', 'must not', "shouldn't"];
+const REFUSAL = new RegExp(String.raw`\bI(?:'m| am)? (?:${REFUSAL_VERBS.join('|')})\b(?:\s+(?:really|actually|currently|safely|properly|further|directly))?\s+(?:engage|discuss|talk|continue|participate|have this|help(?! but| feeling| thinking| wondering| noticing)|assist|provide|give(?! up)|share|answer|respond|support)\b`, 'i');
 // A harmful specific, and the self-harm context that makes it harmful. Both are needed:
 // "methods of coping" has the first without the second.
 const HARMFUL_SPECIFIC = /\b(?:methods?|ways? to|how to|instructions|doses?|dosage|how many|how much|means|amounts?)\b/i;

@@ -1,13 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { Heart, X, Send, MessageCircle, Sparkles, Minimize2, Maximize2, Volume2, VolumeX, Mic, MicOff, AlertCircle } from 'lucide-react';
+import { X, Send, Minimize2, Maximize2, Volume2, VolumeX } from 'lucide-react';
+import { CrayonHeart } from './Crayon';
 
 // Import optimized brain with streaming support
 import { think, warmupEngine, rememberName, onEngineStatus, upgradeEngine } from '../services/releviaBrain';
 import { PREFETCH_AFTER_MS } from '../services/modelConfig';
 import { chatStore, newSessionId, deleteLegacyChat } from '../services/chatStorage.js';
+import { recordChat } from '../services/activity.js';
 import ChatPrivacy from './ChatPrivacy.jsx';
 import { CrisisFilter, FIXED_SAFETY_REPLIES } from '../services/safetyS3.js';
+import { speakSoftly } from '../services/softVoice.js';
 
 // FIX: my emoji list had no /u flag, so it matched HALF of each emoji's surrogate
 // pair and left broken characters for the speech engine. This catches every emoji.
@@ -17,105 +20,56 @@ const EMOJI_RE = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
 // user's name to "Sad" and "I am tired" made it "Tired". Only explicit intros now.
 const NAME_RE = /\b(?:my name is|my name's|call me|i'm called)\s+([a-z][a-z'-]{1,20})\b/i;
 
-const Message = ({ message, isBot, isTyping = false, isCrisis = false, timestamp, currentlySpeaking }) => {
-  const [showTimestamp, setShowTimestamp] = useState(false);
-  
+// Paper theme: the chat is a page of a notebook. Relevia writes in pencil (Kalam, graphite),
+// you write in your own looser hand (Caveat). Lines of text sit on the ruled lines.
+// Safety and error messages are never handwritten: they use the plain reading font on a
+// red-edged note so they cannot be mistaken for ordinary chat or be hard to read.
+// "Plain text" switches all handwriting off for anyone who finds it hard to read.
+const LINE = 30; // px, must match --line on the notebook page
+
+const Message = ({ message, isBot, isTyping = false, isCrisis = false, hasError = false, timestamp, currentlySpeaking, plain }) => {
+  const time = timestamp ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const who = isBot ? 'Relevia' : 'You';
+
+  if (isTyping) {
+    return (
+      <div className={`pencil ${plain ? 'font-sans' : ''} flex items-center gap-1 text-[15px]`} style={{ lineHeight: `${LINE}px`, minHeight: LINE }}>
+        <span>Relevia is writing</span>
+        {[0, 1, 2].map((i) => (
+          <Motion.span key={i} aria-hidden="true" animate={{ opacity: [0.2, 1, 0.2] }}
+            transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}>.</Motion.span>
+        ))}
+      </div>
+    );
+  }
+
+  if (isBot && (isCrisis || hasError)) {
+    return (
+      <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
+        className="my-[15px] mr-2 rounded-r-md border-l-4 border-red-600 bg-red-50 px-3 py-2 font-sans text-[15px] leading-relaxed text-red-900"
+        role={isCrisis ? 'alert' : undefined}>
+        <span className="sr-only">{who}{time ? `, ${time}` : ''}: </span>
+        <p className="whitespace-pre-wrap">{message}</p>
+      </Motion.div>
+    );
+  }
+
+  const hand = plain
+    ? 'font-sans text-[15px] text-ink-900'
+    : isBot ? 'pencil pencil-texture text-[16.5px]' : 'font-handwritten text-[22px] text-ink-700';
+
   return (
     <Motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`flex ${isBot ? 'justify-start' : 'justify-end'} mb-4 group px-2`}
-      onMouseEnter={() => setShowTimestamp(true)}
-      onMouseLeave={() => setShowTimestamp(false)}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35 }}
+      className={`group relative ${isBot ? 'pr-6' : 'ml-auto max-w-[88%] pl-6 text-right'}`}
+      style={{ marginBottom: LINE }}
+      title={time}
     >
-      <div className={`flex items-start max-w-[85%] sm:max-w-[80%] ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
-        {isBot && (
-          <Motion.div
-            animate={{ 
-              scale: isCrisis ? [1, 1.05, 1] : currentlySpeaking ? [1, 1.08, 1] : [1, 1.02, 1],
-            }}
-            transition={{ 
-              duration: isCrisis ? 1.2 : currentlySpeaking ? 0.8 : 4,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className={`relative w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-2 sm:mr-3 shadow-md ${
-              isCrisis 
-                ? 'bg-gradient-to-br from-red-400 via-orange-500 to-yellow-500' 
-                : currentlySpeaking
-                ? 'bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400'
-                : 'bg-gradient-to-br from-purple-400 via-pink-400 to-red-400'
-            }`}
-          >
-            {isCrisis ? (
-              <AlertCircle className="text-white text-xs sm:text-sm" />
-            ) : currentlySpeaking ? (
-              <Volume2 className="text-white text-xs sm:text-sm" />
-            ) : (
-              <Heart className="text-white text-xs sm:text-sm" />
-            )}
-          </Motion.div>
-        )}
-        
-        <div className="relative">
-          <Motion.div
-            whileHover={{ scale: 1.02 }}
-            className={`px-3 sm:px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm relative overflow-hidden transition-all duration-200 ${
-              isBot 
-                ? isCrisis
-                  ? 'bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 text-red-900'
-                  : currentlySpeaking
-                  ? 'bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 text-gray-700'
-                  : 'bg-gradient-to-br from-white to-purple-50 border border-purple-100 text-gray-700' 
-                : 'bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white'
-            }`}
-          >
-            {isTyping ? (
-              <div className="flex space-x-2 items-center py-1">
-                <span className="text-xs sm:text-sm text-purple-600 mr-2 font-medium">Typing...</span>
-                {[0, 1, 2].map((i) => (
-                  <Motion.div
-                    key={i}
-                    animate={{ 
-                      scale: [1, 1.5, 1],
-                      opacity: [0.4, 1, 0.4],
-                    }}
-                    transition={{ 
-                      duration: 1,
-                      repeat: Infinity,
-                      delay: i * 0.15,
-                      ease: "easeInOut"
-                    }}
-                    className="w-2 h-2 bg-purple-400 rounded-full"
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">{message}</p>
-            )}
-          </Motion.div>
-          
-          <AnimatePresence>
-            {showTimestamp && timestamp && (
-              <Motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                className={`absolute top-0 ${isBot ? 'left-0' : 'right-0'} text-xs text-gray-400 -mt-5`}
-              >
-                {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        
-        {!isBot && (
-          <div className="relative w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-400 via-emerald-400 to-teal-500 rounded-full flex items-center justify-center ml-2 sm:ml-3 shadow-md">
-            <span className="text-white text-xs font-bold">You</span>
-          </div>
-        )}
-      </div>
+      <span className="sr-only">{who}{time ? `, ${time}` : ''}: </span>
+      {currentlySpeaking && <Volume2 aria-label="Reading aloud" className="absolute -left-6 top-[7px] h-4 w-4 text-sage-600" />}
+      <p className={`whitespace-pre-wrap ${hand}`} style={{ lineHeight: `${LINE}px` }}>{message}</p>
     </Motion.div>
   );
 };
@@ -123,9 +77,22 @@ const Message = ({ message, isBot, isTyping = false, isCrisis = false, timestamp
 const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [currentlySpeaking, setCurrentlySpeaking] = useState(null);
+  // Handwriting can be hard to read; this switch is remembered on this device only.
+  const [plainText, setPlainText] = useState(() => {
+    try { return localStorage.getItem('relevia_chat_plain') === '1'; } catch { return false; }
+  });
+  const togglePlain = () => setPlainText((v) => {
+    try { localStorage.setItem('relevia_chat_plain', v ? '0' : '1'); } catch { /* still works for this visit */ }
+    return !v;
+  });
+  // Other parts of the page (the home page's "Start writing" button) open the notebook.
+  useEffect(() => {
+    const open = () => { setIsOpen(true); setIsMinimized(false); };
+    window.addEventListener('relevia:open-chat', open);
+    return () => window.removeEventListener('relevia:open-chat', open);
+  }, []);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -142,10 +109,13 @@ const ChatbotWidget = () => {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState(newSessionId);
   const generationEpoch = useRef(0);
+  // Home letter: whether this chat has been counted ('skip' after crisis support).
+  const chatCounted = useRef(false);
   const [legacyWarning, setLegacyWarning] = useState('');
   const resetChat = () => {
     generationEpoch.current++;
     chatStore.invalidateAll();
+    chatCounted.current = false;
     setUserId(newSessionId()); setMessages([]); setUserName(''); setInputMessage('');
     setMessageCount(0); setStreamingId(null); setIsTyping(false);
     speechSynthRef.current?.cancel();
@@ -297,37 +267,13 @@ const ChatbotWidget = () => {
 
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utteranceRef.current = utterance;
-
-    const voices = speechSynthRef.current.getVoices();
-    const preferredVoice = voices.find(voice => 
-      voice.name.toLowerCase().includes('female') ||
-      voice.name.toLowerCase().includes('samantha')
-    ) || voices[0];
-
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.8;
-
-    utterance.onstart = () => {
-      setCurrentlySpeaking(messageId);
-    };
-
-    utterance.onend = () => {
-      setCurrentlySpeaking(null);
-    };
-
-    utterance.onerror = (event) => {
-      console.warn('Speech synthesis error:', event.error);
-      setCurrentlySpeaking(null);
-    };
-
-    speechSynthRef.current.speak(utterance);
+    // Soft voice, on-device only: a reply can echo what the person wrote.
+    utteranceRef.current = speakSoftly(cleanText, {
+      allowOnline: false,
+      onStart: () => setCurrentlySpeaking(messageId),
+      onEnd: () => setCurrentlySpeaking(null),
+      onError: (event) => { console.warn('Speech synthesis error:', event.error); setCurrentlySpeaking(null); },
+    });
   };
 
   const stopSpeaking = () => {
@@ -364,6 +310,11 @@ const ChatbotWidget = () => {
     }
 
     if (!inputMessage.trim() || isTyping) return;
+
+    // Count that a chat happened, as a number only, once per chat. A chat where crisis
+    // support was triggered is never counted, so the home letter cannot echo it.
+    if (safetyReply) chatCounted.current = 'skip';
+    else if (!chatCounted.current) { recordChat(); chatCounted.current = true; }
 
     const userMessage = {
       id: Date.now(),
@@ -483,159 +434,122 @@ const ChatbotWidget = () => {
   };
 
   const getConnectionStatusColor = () => {
+    if (engineStatus.state === 'loading') return 'bg-marigold-400';
     switch (connectionStatus) {
-      case 'connected': return 'bg-gradient-to-r from-green-400 to-emerald-500';
-      case 'connecting': return 'bg-gradient-to-r from-yellow-400 to-orange-400';
-      case 'error': return 'bg-gradient-to-r from-pink-400 to-red-400';
-      default: return 'bg-gray-400';
+      case 'connected': return 'bg-sage-500';
+      case 'connecting': return 'bg-marigold-400';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-paper-400';
     }
   };
 
   const getConnectionStatusText = () => {
     // show model download progress so people know why replies are simpler for now
-    if (engineStatus.state === 'loading') return `Loading AI ${engineStatus.progress}%`;
-    if (engineStatus.state === 'unavailable' && connectionStatus === 'connected') return 'Offline mode';
+    if (engineStatus.state === 'loading') return `Getting the AI ready, ${engineStatus.progress}%`;
+    if (engineStatus.state === 'unavailable' && connectionStatus === 'connected') return 'Simple replies (no WebGPU)';
     if (engineStatus.state === 'network' && connectionStatus === 'connected') return 'No connection, retrying';
+    const mode = engineStatus.label && engineStatus.label !== 'Relevia' ? ` · ${engineStatus.label.replace('Relevia ', '')}` : '';
     switch (connectionStatus) {
-      case 'connected': return 'Ready';
-      case 'connecting': return 'Thinking...';
-      case 'error': return 'Reconnecting...';
-      default: return 'Hello!';
+      case 'connected': return `Ready on this device${mode}`;
+      case 'connecting': return 'Writing back';
+      case 'error': return 'Reconnecting';
+      default: return 'Hello';
     }
   };
 
   const getChatDimensions = () => {
     if (isMobile) {
       return {
-        width: 'w-full max-w-sm',
-        height: isMinimized ? 'h-16' : 'h-[500px]',
-        position: 'fixed inset-x-4 bottom-20'
-      };
-    } else {
-      return {
-        width: 'w-[420px]',
-        height: isMinimized ? 'h-16' : 'h-[580px]',
-        position: 'fixed left-6 bottom-24'
+        width: 'w-auto',
+        height: isMinimized ? 'h-auto' : 'h-[min(560px,calc(100dvh-7rem))]',
+        position: 'fixed inset-x-3 bottom-20'
       };
     }
+    return {
+      width: 'w-[440px]',
+      height: isMinimized ? 'h-auto' : 'h-[min(620px,calc(100vh-8rem))]',
+      position: 'fixed left-6 bottom-24'
+    };
   };
 
   const dimensions = getChatDimensions();
+  const iconBtn = 'rounded-md p-1.5 text-ink-800 hover:bg-ink-900/5';
 
   return (
     <>
-      <Motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.4 }}
-        className={`fixed ${isMobile ? 'left-4 right-4 bottom-6' : 'left-6 bottom-6'} z-50`}
-      >
-        <Motion.button
+      <div className={`fixed ${isMobile ? 'left-3 bottom-4' : 'left-6 bottom-6'} z-50`}>
+        <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           // PERF: hovering/focusing the button means they're about to chat - start
           // loading now, it buys a second or two before they even click
           onMouseEnter={() => startWarmup('hover')}
           onFocus={() => startWarmup('focus')}
           onTouchStart={() => startWarmup('touch')}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className={`bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 hover:from-purple-600 hover:via-pink-600 hover:to-red-600 text-white ${
-            isMobile ? 'px-4 py-3 text-sm' : 'px-6 py-4'
-          } rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2 sm:space-x-3 w-full sm:w-auto`}
+          aria-expanded={isOpen}
+          className="paper-sheet flex items-center gap-2 border-2 border-ink-900 px-4 py-2.5 text-ink-900 transition-transform hover:-translate-y-0.5"
         >
-          <Motion.div
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {isOpen ? <X className="text-lg sm:text-xl" /> : <MessageCircle className="text-lg sm:text-xl" />}
-          </Motion.div>
-          <span className="font-semibold text-sm sm:text-base">
-            {isOpen ? 'Close' : 'Chat with Relevia'}
+          {isOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <CrayonHeart size={26} />}
+          <span className="font-handwritten text-[1.45rem] font-bold leading-none">
+            {isOpen ? 'Close the notebook' : 'Talk to Relevia'}
           </span>
-          <Heart className="text-red-300 fill-red-300 text-sm sm:text-base" />
-        </Motion.button>
-      </Motion.div>
+        </button>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
-          <Motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className={`${dimensions.position} ${dimensions.width} ${dimensions.height} bg-gradient-to-br from-white via-purple-50/50 to-pink-50/30 backdrop-blur-xl border-2 border-white/60 rounded-2xl shadow-xl z-50 flex flex-col overflow-hidden`}
+          <Motion.section
+            aria-label="Conversation with Relevia"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className={`${dimensions.position} ${dimensions.width} ${dimensions.height} paper-sheet z-50 flex flex-col overflow-hidden border border-paper-300`}
           >
-            <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white p-3 sm:p-4 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="relative w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <Heart className="text-lg sm:text-xl fill-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-lg">Relevia</h3>
-                  {/* the privacy promise is the whole point of running on-device, so say it */}
-                  <p className="text-white/90 text-xs sm:text-sm">
-                    {/* "Lite mode · " / "Mini mode · " for the smaller models */}
-                    {engineStatus.label && engineStatus.label !== 'Relevia' ? `${engineStatus.label.replace('Relevia ', '')} mode · ` : ''}AI · local inference
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={toggleVoice}
-                  className={`p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors`}
-                >
-                  {voiceEnabled ? <Mic className="w-3 h-3 sm:w-4 sm:h-4" /> : <MicOff className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </Motion.button>
-
-                <Motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors"
-                >
-                  {soundEnabled ? <Volume2 className="w-3 h-3 sm:w-4 sm:h-4" /> : <VolumeX className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </Motion.button>
-                
-                <Motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsMinimized(!isMinimized)}
-                  className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors"
-                >
-                  {isMinimized ? <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" /> : <Minimize2 className="w-3 h-3 sm:w-4 sm:h-4" />}
-                </Motion.button>
-                
-                <div className="flex flex-col items-center">
-                  <Motion.div
-                    animate={{ 
-                      scale: connectionStatus === 'connecting' ? [1, 1.2, 1] : 1,
-                    }}
-                    transition={{ 
-                      duration: 1.5,
-                      repeat: connectionStatus === 'connecting' ? Infinity : 0,
-                    }}
-                    className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${getConnectionStatusColor()}`}
-                  />
-                  <span className="text-xs text-white/80 mt-0.5">{getConnectionStatusText()}</span>
-                </div>
-              </div>
+            {/* spiral binding */}
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 flex w-6 flex-col justify-around py-4">
+              {Array.from({ length: 12 }, (_, i) => (
+                <span key={i} className="mx-auto block h-3 w-3 rounded-full bg-paper-100 shadow-[inset_0_1px_2px_rgba(35,50,74,.35)]" />
+              ))}
             </div>
 
-            <ChatPrivacy sessionId={userId} busy={isTyping} legacyWarning={legacyWarning}
-              onReset={resetChat} onRestore={(id, rows) => {
-                generationEpoch.current++; setUserId(id); setUserName(''); setMessageCount(0);
-                speechSynthRef.current?.cancel();
-                setMessages(rows.map(r => ({ id: r.id, text: r.content, isBot: r.role === 'assistant', timestamp: new Date(r.ts) })));
-              }} />
+            <header className="flex items-center justify-between gap-2 border-b-2 border-ink-900/80 bg-sheet py-2 pl-12 pr-3">
+              <div className="min-w-0">
+                <h2 className="font-handwritten text-[1.45rem] font-bold leading-none text-ink-900 sm:text-[1.75rem]">Talking with Relevia</h2>
+                <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-700" role="status">
+                  <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${getConnectionStatusColor()}`} aria-hidden="true" />
+                  {getConnectionStatusText()}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center">
+                <button type="button" onClick={togglePlain} aria-pressed={plainText} className={`${iconBtn} px-2 text-xs font-bold`}
+                  title="Show the chat in plain print instead of handwriting">
+                  {plainText ? 'Handwriting' : 'Plain text'}
+                </button>
+                <button type="button" onClick={toggleVoice} aria-pressed={voiceEnabled} className={iconBtn}
+                  aria-label={voiceEnabled ? 'Stop reading replies aloud' : 'Read replies aloud'}>
+                  {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </button>
+                <button type="button" onClick={() => setIsMinimized(!isMinimized)} className={iconBtn}
+                  aria-label={isMinimized ? 'Open the notebook' : 'Fold the notebook away'}>
+                  {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                </button>
+              </div>
+            </header>
 
-            <AnimatePresence>
-              {!isMinimized && (
-                <Motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-1 custom-scrollbar"
-                >              
+            {!isMinimized && (
+              <>
+                <div className="pl-6">
+                  <ChatPrivacy sessionId={userId} busy={isTyping} legacyWarning={legacyWarning}
+                    onReset={resetChat} onRestore={(id, rows) => {
+                      generationEpoch.current++; setUserId(id); setUserName(''); setMessageCount(0);
+                      speechSynthRef.current?.cancel();
+                      setMessages(rows.map(r => ({ id: r.id, text: r.content, isBot: r.role === 'assistant', timestamp: new Date(r.ts) })));
+                    }} />
+                </div>
+
+                <div className="notebook-lines custom-scrollbar flex-1 overflow-y-auto pb-[30px] pl-[60px] pr-4 pt-[30px]"
+                  aria-live="polite" aria-relevant="additions">
                   {messages.map((message) => (
                     <Message
                       key={message.id}
@@ -645,115 +559,79 @@ const ChatbotWidget = () => {
                       isCrisis={message.isCrisis}
                       timestamp={message.timestamp}
                       currentlySpeaking={currentlySpeaking === message.id}
+                      plain={plainText}
                     />
                   ))}
                   {/* hide the dots once the streamed reply bubble is showing */}
-                  {isTyping && !streamingId && <Message message="" isBot={true} isTyping={true} />}
+                  {isTyping && !streamingId && <Message message="" isBot={true} isTyping={true} plain={plainText} />}
                   <div ref={messagesEndRef} />
-                </Motion.div>
-              )}
-            </AnimatePresence>
+                </div>
 
-            <AnimatePresence>
-              {!isMinimized && (
-                <Motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="px-3 py-2 bg-gradient-to-r from-purple-50 via-pink-50 to-red-50 border-t border-purple-100"
-                >
+                <div className="border-t border-dashed border-rule bg-sheet py-1.5 pl-12 pr-3 text-xs text-ink-700">
                   {showUpgrade ? (
                     // optional, never automatic: it's another big download
-                    <div className="flex items-center justify-between gap-2 text-xs text-purple-700">
-                      <span>✨ Smarter replies available ({engineStatus.upgradeSizeGB} GB, one time)</span>
-                      <span className="flex gap-2 shrink-0">
-                        <button onClick={handleUpgrade} className="font-semibold underline hover:text-purple-900">Upgrade</button>
-                        <button onClick={() => setUpgradeDismissed(true)} aria-label="Not now" className="text-gray-500 hover:text-gray-700">Not now</button>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Fuller replies are available ({engineStatus.upgradeSizeGB} GB, one-time download)</span>
+                      <span className="flex shrink-0 gap-3">
+                        <button type="button" onClick={handleUpgrade} className="font-bold underline decoration-2 underline-offset-2">Download</button>
+                        <button type="button" onClick={() => setUpgradeDismissed(true)} className="underline underline-offset-2">Not now</button>
                       </span>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-600 text-center">
-                      AI support • Not therapy or emergency care
-                    </p>
+                    <p>An AI for everyday support, not therapy or emergency care.</p>
                   )}
-                </Motion.div>
-              )}
-            </AnimatePresence>
+                </div>
 
-            <AnimatePresence>
-              {!isMinimized && (
-                <Motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3 sm:p-4 bg-white/60 border-t border-purple-100"
-                >
-                  <div className="flex space-x-2 sm:space-x-3">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder={userName ? `What's on your mind, ${userName}?` : "Share what's on your heart..."}
-                      className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-300 text-xs sm:text-sm placeholder-gray-500"
-                      disabled={isTyping}
-                      maxLength={500}
-                    />
-                    <Motion.button
-                      onClick={handleSendMessage}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      disabled={!inputMessage.trim() || isTyping}
-                      className="px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-                    >
-                      <Send className="text-sm" />
-                    </Motion.button>
+                <form className="flex items-end gap-2 border-t-2 border-ink-900/80 bg-sheet py-3 pl-12 pr-3"
+                  onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
+                  <label htmlFor="relevia-message" className="sr-only">Your message</label>
+                  <input
+                    id="relevia-message"
+                    ref={inputRef}
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder={userName ? `What's on your mind, ${userName}?` : 'Write here…'}
+                    className={`min-w-0 flex-1 border-0 border-b-2 border-ink-900/40 bg-transparent px-1 py-1 text-ink-800 placeholder:text-paper-500 focus:border-ink-900 focus:outline-none focus-visible:outline-none ${plainText ? 'text-[15px]' : 'font-handwritten text-[22px]'}`}
+                    disabled={isTyping}
+                    maxLength={500}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inputMessage.trim() || isTyping}
+                    className="btn-ink !px-4 !py-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    <span>Send</span>
+                  </button>
+                </form>
+
+                {(voiceEnabled || messageCount >= 10) && (
+                  <div className="flex items-center justify-between bg-sheet pb-2 pl-12 pr-3 text-xs text-ink-700">
+                    <span>{voiceEnabled ? 'Replies are read aloud' : ''}</span>
+                    {messageCount >= 10 && <span className="font-bold">{Math.max(0, 12 - messageCount)} ordinary messages left</span>}
                   </div>
-                  
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center space-x-2">
-                      {voiceEnabled && (
-                        <div className="flex items-center space-x-1">
-                          <Mic className="w-3 h-3 text-purple-500" />
-                          <span className="text-xs text-purple-600">Voice on</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {messageCount >= 10 && (
-                      <Motion.p
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-xs text-purple-600 font-medium"
-                      >
-                        {Math.max(0, 12 - messageCount)} ordinary messages left
-                      </Motion.p>
-                    )}
-                  </div>
-                </Motion.div>
-              )}
-            </AnimatePresence>
-          </Motion.div>
+                )}
+              </>
+            )}
+          </Motion.section>
         )}
       </AnimatePresence>
 
       {/* FIX: `jsx` is a Next.js styled-jsx thing, in Vite it just threw a React warning */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        .notebook-lines {
+          --line: ${LINE}px;
+          background:
+            linear-gradient(var(--margin), var(--margin)) 46px 0 / 2px 100% no-repeat,
+            repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)) 0 0 / 100% var(--line) local,
+            var(--sheet);
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f3f4f6;
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #d1d5db;
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #9ca3af;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #C9CFC6; border-radius: 3px; }
       `}</style>
     </>
   );

@@ -1,4 +1,4 @@
-/* memoryUtils.js â€“ tone detection + offline fallback replies (used by releviaBrain.js and groqApi.js) */
+/* memoryUtils.js – tone detection + offline fallback replies (used by releviaBrain.js and groqApi.js) */
 import { assessRisk, URGENT_SUPPORT } from './safetyS3.js';
 
 export function analyzeEmotionalTone(text) {
@@ -12,17 +12,17 @@ export function analyzeEmotionalTone(text) {
   if (/(lonely|isolated|no friends|abandoned)/.test(t)) return 'lonely';
   // FIX: plain "I'm sad" used to fall through to neutral and get a generic reply
   if (/\b(sad|down|low|upset|crying|cried|hurt|heartbroken|miserable)\b/.test(t)) return 'sad';
-  // FIX: good news used to land in "neutral", so "im happy" got "Tell me moreâ€”what's been
+  // FIX: good news used to land in "neutral", so "im happy" got "Tell me more—what's been
   // on your mind?" like nothing happened. Checked last, so "happy but anxious" stays anxious.
   // (promot/propot also catches the common "propotion" typo)
   // "not happy" / "don't feel happy" is the opposite, catch it before the happy check
   // (n't has no \b in front of it - "don't" is one word - so it sits outside that group)
-  if (/(?:\b(?:not|never|no longer)|n['â€™]t)\s+(feel(ing)?\s+|so\s+|very\s+|really\s+)?(happy|excited|glad|proud|grateful)/.test(t)) return 'sad';
+  if (/(?:\b(?:not|never|no longer)|n['’]t)\s+(feel(ing)?\s+|so\s+|very\s+|really\s+)?(happy|excited|glad|proud|grateful)/.test(t)) return 'sad';
   if (/\b(happy|excited|so glad|great news|good news|promot|propot|got the job|passed|proud|grateful|thrilled|engaged|amazing day)/.test(t)) return 'happy';
   return 'neutral';
 }
 
-/* huge curated fallback pool â€“ feel free to expand */
+/* huge curated fallback pool – feel free to expand */
 export const fallbackPool = {
   crisis: [URGENT_SUPPORT],
   anxiety: [
@@ -69,7 +69,7 @@ const SMALL_TALK = [
   {
     re: /^\s*(hi+|hey+|hello+|hiya|yo|sup|heya|salam|assalamu\s*alaikum|good\s+(morning|afternoon|evening))\b[\s!.?]*$/i,
     replies: [
-      "Hey! ðŸ˜Š I'm really glad you're here. How are you feeling today?{ai}",
+      "Hey! 😊 I'm really glad you're here. How are you feeling today?{ai}",
       "Hi there! How's your day going so far, honestly?{ai}",
     ],
   },
@@ -77,26 +77,26 @@ const SMALL_TALK = [
     re: /(what\s+(are|r)\s+(you|u)\s+(doing|up to)|wh?at\s*(are|r)\s*(you|u)\s*doin|who\s+(are|r)\s+(you|u)|what\s+(are|r)\s+(you|u)\b|are\s+(you|u)\s+(real|a\s+bot|ai|human))/i,
     replies: [
       "I'm Relevia, an AI for general supportive conversation, not a person or a therapist.{ai} What would you like to discuss?",
-      "Just here, keeping you company ðŸ’œ I'm an AI, not a person, but I'm all ears. How are you doing?{ai}",
+      "Just here, keeping you company 💜 I'm an AI, not a person, but I'm all ears. How are you doing?{ai}",
     ],
   },
   {
     re: /^\s*(how\s+(are|r)\s+(you|u)|how('?s| is)\s+it\s+going|hru|wbu)\b/i,
     replies: [
-      "I'm good, thanks for asking! ðŸ˜Š More importantly, how are YOU doing?{ai}",
+      "I'm good, thanks for asking! 😊 More importantly, how are YOU doing?{ai}",
     ],
   },
   {
     re: /^\s*(thanks|thank\s+(you|u)|thx|ty)\b/i,
     replies: [
-      "Anytime ðŸ’œ I'm glad I could be here. Anything else on your mind?",
+      "Anytime 💜 I'm glad I could be here. Anything else on your mind?",
       "Of course. You don't have to go through things alone.",
     ],
   },
   {
     re: /^\s*(bye|goodbye|good\s*night|gn|see\s+(you|u|ya)|gotta\s+go|ttyl)\b/i,
     replies: [
-      "Take care of yourself ðŸ’œ I'm here whenever you want to talk again.",
+      "Take care of yourself 💜 I'm here whenever you want to talk again.",
       "Goodnight! Be gentle with yourself, and come back anytime.",
     ],
   },
