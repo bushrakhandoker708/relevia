@@ -36,11 +36,11 @@ npm test
 npm run build
 ```
 
-`npm run lint` checks the whole application. The recorded Milestone 2 run still has 41 legacy errors and nine warnings, although the changed-file checks pass. Installing from a clean environment remains a separate verification step; the recorded build used the existing local installation.
+`npm run lint` checks the whole application. The Milestone 2 run had 41 legacy errors and nine warnings; on 21 November 2026 the full lint passed with no errors. Installing from a clean environment remains a separate verification step; the recorded build used the existing local installation.
 
 ## What has been verified
 
-The recorded run passed 18 JavaScript tests covering storage boundaries and inference failure behaviour. The production build and changed-file lint also passed. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
+On 21 November 2026, `npm test` passed 170 JavaScript tests: storage boundaries, inference failure behaviour, safety routing (S3) and the reply guard (G3), including a test that no point in a stream shows text the guard later rejects. The production build and the full lint also passed. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
 
 The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 

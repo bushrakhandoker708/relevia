@@ -434,11 +434,12 @@ export async function think(text, uid = newSessionId(), onToken) {
         const delta = chunk.choices?.[0]?.delta?.content || '';
         if (!delta) continue;
         reply += delta;
-        // FIX (guard audit): checking only the whole text let "I cannot eng..." or half a
-        // phone number reach the screen before the pattern completed. Now only checked
-        // sentences are shown, plus the unfinished one if nothing in it could become a
-        // refusal or a contact detail. Once a problem appears nothing more streams; the
-        // guarded reply replaces the bubble at the end.
+        // FIX (guard audits): checking only the whole text let "I cannot eng..." or half a
+        // phone number reach the screen before the pattern completed. G2 then showed the
+        // unfinished sentence when it looked harmless, but "Child" can become "Childline".
+        // G3 shows finished, checked sentences only, so the bubble fills a sentence at a
+        // time. Once a problem appears nothing more streams; the guarded reply replaces
+        // the bubble at the end.
         if (blocked) continue;
         const safe = streamSafeLength(reply, { userText: trimmedText });
         if (safe < 0) { blocked = true; continue; }
