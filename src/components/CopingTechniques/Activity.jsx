@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion';
 import { PauseIcon, PlayIcon, ForwardIcon } from '@heroicons/react/24/solid';
 import TechniqueShell from './TechniqueShell';
+import useTechniqueEvents from './useTechniqueEvents';
 
 /**
  * Moving: short guided routines to use up some of the adrenaline panic brings, chosen by
@@ -97,6 +98,8 @@ function Routine({ routine, onStop }) {
   const [left, setLeft] = useState(routine.moves[0].secs);
   const [paused, setPaused] = useState(false);
   const done = step >= routine.moves.length;
+  // Started when the routine opens; completed when its last move ends.
+  useTechniqueEvents('activity', true, done);
   const timer = useRef(null);
 
   useEffect(() => {
@@ -245,7 +248,7 @@ export default function Activity() {
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2" role="tablist" aria-label="How much energy you have">
           {Object.entries(ENERGY).map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={energy === k} onClick={() => setEnergy(k)}
-              className={`relative py-1 text-lg font-bold transition-colors ${energy === k ? 'text-ink-900' : 'text-ink-700/70 hover:text-ink-900'}`}>
+              className={`relative py-1 text-lg font-bold transition-colors ${energy === k ? 'text-ink-900' : 'text-ink-700 hover:text-ink-900'}`}>
               {label}
               {energy === k && <Motion.span layoutId="energy-tab" className="absolute inset-x-0 -bottom-0.5 h-1 rounded-full bg-crayon-leaf" />}
             </button>

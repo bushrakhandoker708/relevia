@@ -11,7 +11,7 @@
  * the number of chats started. It changes on every visit. With no activity it is the
  * default welcome letter.
  */
-import { TECHNIQUES, recordVisit as recordActivityVisit } from './activity.js';
+import { TECHNIQUES, techniqueLevel, recordVisit as recordActivityVisit } from './activity.js';
 
 export const recordVisit = recordActivityVisit;
 export async function getChatContext() { return { name: '', feeling: null, chatted: false }; }
@@ -105,9 +105,14 @@ const list = (words) => (words.length < 2 ? words.join('') : `${words.slice(0, -
 export function buildLetter(visit, _chat, now = new Date(), activity = null) {
   const visits = Math.max(1, activity?.visits || visit?.count || 1);
   const when = partOfDay(now.getHours());
-  const tried = Object.keys(activity?.techniques || {}).filter((k) => TECHNIQUES[k]);
-  const untried = Object.keys(TECHNIQUES).filter((k) => !tried.includes(k));
-  const favourite = tried.slice().sort((a, b) => activity.techniques[b] - activity.techniques[a])[0];
+  // "Tried" means the exercise was started, not just that its page was opened.
+  const level = (k) => techniqueLevel(activity, k);
+  const tried = Object.keys(TECHNIQUES).filter((k) => level(k) === 'started' || level(k) === 'completed');
+  const looked = Object.keys(TECHNIQUES).filter((k) => level(k) === 'opened');
+  const seen = [...tried, ...looked];
+  const untried = Object.keys(TECHNIQUES).filter((k) => !seen.includes(k));
+  const starts = (k) => activity?.started?.[k] || 0;
+  const favourite = tried.slice().sort((a, b) => starts(b) - starts(a))[0];
   const isNew = !activity || visits <= 1;
 
   const paragraphs = [];
@@ -135,8 +140,10 @@ export function buildLetter(visit, _chat, now = new Date(), activity = null) {
     if (tried.length > 0) {
       const names = tried.map((k) => TECHNIQUES[k].label);
       paragraphs.push(tried.length === Object.keys(TECHNIQUES).length
-        ? "You've opened every technique in the notebook now. Some will suit you more than others, and that's how it should be."
-        : `So far you've tried ${list(names)}.${favourite && activity.techniques[favourite] > 1 ? ` ${TECHNIQUES[favourite].title} seems to be one you come back to. It's there whenever you want it.` : ''}`);
+        ? "You've started every technique in the notebook now. Some will suit you more than others, and that's how it should be."
+        : `So far you've tried ${list(names)}.${favourite && starts(favourite) > 1 ? ` ${TECHNIQUES[favourite].title} seems to be one you come back to. It's there whenever you want it.` : ''}`);
+    } else if (looked.length > 0) {
+      paragraphs.push(`You've had a look at ${list(looked.map((k) => TECHNIQUES[k].label))}. They're there whenever you want to try one.`);
     }
 
     if (untried.length > 0) {
@@ -145,6 +152,10 @@ export function buildLetter(visit, _chat, now = new Date(), activity = null) {
       suggestion = { to: next.to, label: `Try ${next.label}` };
     } else if (favourite) {
       suggestion = { to: TECHNIQUES[favourite].to, label: `Back to ${TECHNIQUES[favourite].label}` };
+    }
+    if (!suggestion && looked.length > 0) {
+      const k = pick(looked, visits);
+      suggestion = { to: TECHNIQUES[k].to, label: `Try ${TECHNIQUES[k].label}` };
     }
 
     if (activity.chats > 0) {

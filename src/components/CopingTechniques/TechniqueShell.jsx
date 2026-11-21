@@ -65,7 +65,7 @@ export default function TechniqueShell({ icon, color, note, title, intro, wide =
       {fit ? (
         // One-screen layout for exercises someone may use mid-panic: everything needed is
         // visible without scrolling. Only very short screens (under 560px) scroll.
-        <main className={`relative z-10 mx-auto flex h-[100dvh] min-h-[560px] flex-col px-4 pb-4 pt-[4.75rem] sm:px-6 ${width}`}>
+        <div className={`relative z-10 mx-auto flex h-[100dvh] min-h-[560px] flex-col px-4 pb-4 pt-[4.75rem] sm:px-6 ${width}`}>
           <header className="flex shrink-0 items-center justify-between gap-4">
             <div className="min-w-0">
               {back}
@@ -80,9 +80,9 @@ export default function TechniqueShell({ icon, color, note, title, intro, wide =
             </div>
           </header>
           <div className="mt-3 min-h-0 flex-1">{children}</div>
-        </main>
+        </div>
       ) : (
-        <main className={`relative z-10 mx-auto px-4 pb-32 pt-24 sm:px-6 ${width}`}>
+        <div className={`relative z-10 mx-auto px-4 pb-32 pt-24 sm:px-6 ${width}`}>
           {back}
           <header className="mt-5 flex items-start justify-between gap-6">
             <div className="max-w-2xl">
@@ -95,7 +95,7 @@ export default function TechniqueShell({ icon, color, note, title, intro, wide =
             </div>
           </header>
           <div className="mt-10">{children}</div>
-        </main>
+        </div>
       )}
     </>
   );

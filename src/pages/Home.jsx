@@ -45,9 +45,6 @@ function Home() {
 
   return (
     <>
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-20 focus:z-50 btn-ink">
-        Skip to main content
-      </a>
       <ChatbotWidget />
 
       {/* Colour behind the glass */}
@@ -57,7 +54,7 @@ function Home() {
         <div className="absolute bottom-[-10vh] left-[25vw] h-[40vw] w-[40vw] max-h-[560px] max-w-[560px] rounded-full bg-[#C9C0F2] opacity-40 blur-3xl" />
       </div>
 
-      <main id="main" className="relative z-10 mx-auto max-w-6xl px-4 pb-32 pt-24 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-32 pt-24 sm:px-6">
         {/* Opening page */}
         <section className="grid items-center gap-10 md:grid-cols-[1.05fr_1fr]">
           <div>
@@ -156,7 +153,7 @@ function Home() {
             or an emergency service. If you might be in danger, contact your local emergency number.
           </p>
         </section>
-      </main>
+      </div>
     </>
   );
 }

@@ -6,11 +6,16 @@ const source = path => readFileSync(new URL('../src/' + path, import.meta.url), 
 
 test('public information does not diagnose chest symptoms or encourage symptom provocation', () => {
   const about = source('pages/About.jsx');
-  const resources = source('pages/Resources.jsx');
   assert.doesNotMatch(about, /your lungs are actually fine|not your heart|you are not in actual danger|They cannot hurt you/i);
-  assert.doesNotMatch(resources, /Try to make your heart beat faster|a clue it’s anxiety|proving these feelings can’t hurt you/);
   assert.match(about, /seek urgent medical help/i);
-  assert.match(resources, /Do not deliberately intensify/);
+  // Resources.jsx was never routed and was removed on 21 November 2026; if a resources
+  // page comes back, it must keep the same safeguards.
+  let resources = null;
+  try { resources = source('pages/Resources.jsx'); } catch { /* removed */ }
+  if (resources !== null) {
+    assert.doesNotMatch(resources, /Try to make your heart beat faster|a clue it’s anxiety|proving these feelings can’t hurt you/);
+    assert.match(resources, /Do not deliberately intensify/);
+  }
 });
 
 test('technical failure does not guarantee data preservation or assume a country', () => {

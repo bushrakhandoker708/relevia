@@ -131,6 +131,7 @@ const ChatbotWidget = () => {
   }, []);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const toggleRef = useRef(null); // the dock button, which gets focus back on Escape
 
   const speechSynthRef = useRef(null);
   const utteranceRef = useRef(null);
@@ -245,6 +246,19 @@ const ChatbotWidget = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Escape closes the notebook from anywhere inside it and hands focus back to the button
+  // that opened it. The panel is not modal: the page behind stays usable.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || !document.getElementById('relevia-chat-panel')?.contains(document.activeElement)) return;
+      setIsOpen(false);
+      toggleRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen && !isMinimized && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -290,11 +304,22 @@ const ChatbotWidget = () => {
     setVoiceEnabled(!voiceEnabled);
   };
 
+  const userHistory = () => messages.filter(message => !message.isBot).map(message => ({ role: 'user', content: message.text }));
+
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isTyping) return;
-    const safetyReply = CrisisFilter(inputMessage.trim(), messages
-      .filter(message => !message.isBot)
-      .map(message => ({ role: 'user', content: message.text })));
+    if (!inputMessage.trim()) return;
+    const safetyReply = CrisisFilter(inputMessage.trim(), userHistory());
+    // While a reply is being written, only a message that needs safety support can be sent.
+    // It must not wait for a slow model: the half-written reply is dropped and the fixed
+    // support text is shown at once (think() answers crisis messages without the model).
+    if (isTyping && !safetyReply) return;
+    if (isTyping) {
+      generationEpoch.current++;
+      stopSpeaking();
+      const unfinished = streamingId;
+      if (unfinished) setMessages(prev => prev.filter(m => m.id !== unfinished));
+      setStreamingId(null);
+    }
     // The conversation limit must not prevent deterministic safety support.
     if (messageCount >= 12 && !safetyReply) {
       const rateLimitMessage = {
@@ -308,8 +333,6 @@ const ChatbotWidget = () => {
       setMessages(prev => [...prev, rateLimitMessage]);
       return;
     }
-
-    if (!inputMessage.trim() || isTyping) return;
 
     // Count that a chat happened, as a number only, once per chat. A chat where crisis
     // support was triggered is never counted, so the home letter cannot echo it.
@@ -457,12 +480,17 @@ const ChatbotWidget = () => {
     }
   };
 
+  // Quick calm sits bottom-right; on a phone the open panel covers that corner.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('relevia:chat-panel', { detail: { open: isOpen } }));
+  }, [isOpen]);
+
   const getChatDimensions = () => {
     if (isMobile) {
       return {
         width: 'w-auto',
         height: isMinimized ? 'h-auto' : 'h-[min(560px,calc(100dvh-7rem))]',
-        position: 'fixed inset-x-3 bottom-20'
+        position: 'fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))]'
       };
     }
     return {
@@ -477,7 +505,9 @@ const ChatbotWidget = () => {
 
   return (
     <>
-      <div className={`fixed ${isMobile ? 'left-3 bottom-4' : 'left-6 bottom-6'} z-50`}>
+      {/* Bottom-left dock. It never takes more than half the width, so it cannot meet the
+          "Quick calm" link on the right, and it sits above the phone's home indicator. */}
+      <div className="float-dock float-dock-left z-50">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -486,11 +516,13 @@ const ChatbotWidget = () => {
           onMouseEnter={() => startWarmup('hover')}
           onFocus={() => startWarmup('focus')}
           onTouchStart={() => startWarmup('touch')}
+          ref={toggleRef}
           aria-expanded={isOpen}
-          className="paper-sheet flex items-center gap-2 border-2 border-ink-900 px-4 py-2.5 text-ink-900 transition-transform hover:-translate-y-0.5"
+          aria-controls="relevia-chat-panel"
+          className="paper-sheet flex min-h-11 max-w-full items-center gap-2 border-2 border-ink-900 px-3 py-2 text-left text-ink-900 transition-transform hover:-translate-y-0.5 sm:px-4 sm:py-2.5"
         >
-          {isOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <CrayonHeart size={26} />}
-          <span className="font-handwritten text-[1.45rem] font-bold leading-none">
+          {isOpen ? <X className="h-5 w-5 shrink-0" aria-hidden="true" /> : <span className="shrink-0"><CrayonHeart size={26} /></span>}
+          <span className="font-handwritten text-[1.35rem] font-bold leading-[1.05] sm:text-[1.45rem]">
             {isOpen ? 'Close the notebook' : 'Talk to Relevia'}
           </span>
         </button>
@@ -499,6 +531,7 @@ const ChatbotWidget = () => {
       <AnimatePresence>
         {isOpen && (
           <Motion.section
+            id="relevia-chat-panel"
             aria-label="Conversation with Relevia"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -594,13 +627,12 @@ const ChatbotWidget = () => {
                     onKeyDown={handleKeyPress}
                     placeholder={userName ? `What's on your mind, ${userName}?` : 'Write here…'}
                     className={`min-w-0 flex-1 border-0 border-b-2 border-ink-900/40 bg-transparent px-1 py-1 text-ink-800 placeholder:text-paper-500 focus:border-ink-900 focus:outline-none focus-visible:outline-none ${plainText ? 'text-[15px]' : 'font-handwritten text-[22px]'}`}
-                    disabled={isTyping}
                     maxLength={500}
                     autoComplete="off"
                   />
                   <button
                     type="submit"
-                    disabled={!inputMessage.trim() || isTyping}
+                    disabled={!inputMessage.trim() || (isTyping && !CrisisFilter(inputMessage.trim(), userHistory()))}
                     className="btn-ink !px-4 !py-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Send className="h-4 w-4" aria-hidden="true" />

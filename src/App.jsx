@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -27,10 +27,49 @@ const Affirmations = lazy(() => import('./components/CopingTechniques/Affirmatio
 const Activity = lazy(() => import('./components/CopingTechniques/Activity'));
 const Journaling = lazy(() => import('./components/CopingTechniques/Journaling'));
 
-// A new page starts at its top; the router alone keeps the previous page's scroll position.
-function ScrollToTop() {
+// One title per page, so tabs, history and screen readers can tell pages apart.
+const TITLES = {
+  '/': 'Relevia: a quiet page to put things down',
+  '/about': 'Understanding panic attacks',
+  '/coping': 'Coping techniques',
+  '/medication': 'Medication',
+  '/contact': 'Contact',
+  '/coping/breathing': 'Breathing',
+  '/coping/mindfulness': '5-4-3-2-1 grounding',
+  '/coping/relaxation': 'Relaxation',
+  '/coping/visualization': 'Visualisation',
+  '/coping/affirmations': 'Affirmations',
+  '/coping/activity': 'Moving',
+  '/coping/journaling': 'Journaling',
+};
+
+// On every route change: start at the top, set the page title, and (after the first page)
+// move keyboard and screen-reader focus to the new page's heading. Without this, focus
+// stays on the link that was clicked, which no longer exists, and nothing is announced.
+function RouteChange() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  const first = useRef(true);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const path = pathname.replace(/\/+$/, '') || '/';
+    const name = TITLES[path];
+    document.title = name ? (path === '/' ? name : `${name} | Relevia`) : 'Page not found | Relevia';
+    if (first.current) { first.current = false; return undefined; }
+    // Pages are lazy-loaded, so wait for the heading to appear (up to about 3 seconds).
+    let tries = 0;
+    const id = setInterval(() => {
+      const h1 = document.querySelector('main h1');
+      if (h1 || ++tries > 30) {
+        clearInterval(id);
+        const target = h1 || document.getElementById('main');
+        if (target) {
+          if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+          target.focus({ preventScroll: true });
+        }
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [pathname]);
   return null;
 }
 
@@ -61,14 +100,13 @@ function App() {
         {/* Global SEO Configuration */}
         <Helmet>
           <html lang="en" />
-          <title>Mental Health & Wellness - Your Journey to Better Mental Health</title>
+          <title>Relevia</title>
           <meta 
             name="description" 
             content="Discover effective coping techniques, medication information, and resources for mental health support. Your comprehensive guide to mental wellness and recovery." 
           />
           <meta name="keywords" content="mental health, coping techniques, mindfulness, anxiety relief, depression support, wellness, meditation, breathing exercises" />
           <meta name="author" content="Mental Health & Wellness Team" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           
           {/* Open Graph / Social Media Meta Tags */}
           <meta property="og:type" content="website" />
@@ -83,41 +121,17 @@ function App() {
           
           {/* Additional SEO Meta Tags */}
           <meta name="robots" content="index, follow" />
-          <meta name="theme-color" content="#EEF0E9" />
-          <link rel="canonical" href="https://your-domain.com" />
-          
-          {/* Preconnect to external domains for performance */}
-          <link rel="preconnect" href="https://vitals.vercel-insights.com" />
-          
-          {/* JSON-LD Structured Data for SEO */}
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "Mental Health & Wellness",
-              "description": "Comprehensive mental health resources and coping techniques",
-              "url": "https://your-domain.com",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://your-domain.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              },
-              "publisher": {
-                "@type": "Organization",
-                "name": "Mental Health & Wellness"
-              }
-            })}
-          </script>
+          <meta name="theme-color" content="#EEF0E9" />          
         </Helmet>
 
-        <ScrollToTop />
+        <RouteChange />
         <CrayonDefs />
         <ErrorBoundary>
-          {/* Navigation Component */}
+          <a href="#main" className="btn-ink sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60]">Skip to main content</a>
           <Navbar />
           
           {/* Main Content Area with Suspense for Lazy Loading */}
-          <main role="main">
+          <main id="main" tabIndex={-1} className="focus:outline-none">
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {/* Primary Pages */}

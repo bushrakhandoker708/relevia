@@ -10,7 +10,7 @@
  * Nothing here reads chat or journal content.
  */
 
-import { readActivity } from './activity.js';
+import { readActivity, techniqueLevel } from './activity.js';
 
 export const KEPT_KEY = 'relevia_kept_affirmations_v1';
 
@@ -217,16 +217,30 @@ const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
  * time of day. Each comes with a short, plain reason. Never reads chat or journal text.
  */
 export function affirmationsForHome(activity = readActivity(), now = new Date(), kept = readKept()) {
-  const t = activity?.techniques || {};
   const hour = now.getHours();
   const reasons = [];
+  // Each reason says only what was recorded: a page opened, an exercise started, or an
+  // exercise finished (activity.js DONE_MEANS). It never implies anyone feels better.
+  const lv = (k) => techniqueLevel(activity, k);
+  const said = {
+    breathing: { completed: 'Because you finished a breathing round', started: 'Because you started the breathing circle', opened: 'Because you looked at breathing' },
+    mindfulness: { completed: 'Because you went through all five senses', started: 'Because you started grounding', opened: 'Because you looked at grounding' },
+    journaling: { completed: 'Because you saved a journal entry', started: 'Because you started writing in the journal', opened: 'Because you opened the journal' },
+    relaxation: { completed: 'Because you finished a relaxation exercise', started: 'Because you started a relaxation exercise', opened: 'Because you looked at relaxation' },
+    visualization: { completed: 'Because you finished a visualisation', started: 'Because you started a visualisation', opened: 'Because you looked at visualisation' },
+    affirmations: { started: 'Because you read some of these', opened: 'Because you opened the affirmations' },
+  };
+  const why = (k) => said[k][lv(k)] || null;
   if (kept.length) reasons.push({ kept: true, why: 'One you kept' });
   if (hour >= 21 || hour < 5) reasons.push({ set: 'rest', why: 'For this time of night' });
-  if (t.breathing || t.mindfulness) reasons.push({ set: t.mindfulness ? 'grounding' : 'panic', why: t.mindfulness ? 'Because you have tried grounding' : 'Because you have practised breathing' });
-  if (t.journaling) reasons.push({ set: 'selfCompassion', why: 'Because you have been writing' });
-  if (t.relaxation || t.visualization) reasons.push({ set: 'rest', why: 'Because you have been making time to unwind' });
-  if (t.affirmations) reasons.push({ set: 'confidence', why: 'Because you came back to these' });
-  if (activity?.chats) reasons.push({ set: 'connection', why: 'Because you have talked things through' });
+  // Stronger evidence first: something finished or started outranks a page opened.
+  const rank = { completed: 0, started: 1, opened: 2 };
+  [
+    ['mindfulness', 'grounding'], ['breathing', 'panic'], ['journaling', 'selfCompassion'],
+    ['relaxation', 'rest'], ['visualization', 'rest'], ['affirmations', 'confidence'],
+  ].filter(([k]) => lv(k)).sort((x, y) => rank[lv(x[0])] - rank[lv(y[0])])
+    .forEach(([k, set]) => reasons.push({ set, why: why(k) }));
+  if (activity?.chats) reasons.push({ set: 'connection', why: activity.chats === 1 ? 'Because you wrote to Relevia' : 'Because you have written to Relevia' });
   if ((activity?.visits || 0) >= 3) reasons.push({ set: 'comingBack', why: 'Because you keep coming back' });
   // Nothing to go on yet: a gentle start.
   reasons.push({ set: 'anxiety', why: 'A gentle one to start with' });

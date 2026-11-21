@@ -1,364 +1,124 @@
-import { useState, useEffect } from 'react';
-import { motion as Motion, AnimatePresence } from 'framer-motion';
+// Medication: general information to take to a doctor, with sources. Rewritten on
+// 21 November 2026 after an accuracy review. The earlier page quoted a psychiatrist who
+// could not be identified (removed), called a US treatment-referral line "emergency
+// support", listed a Bangladeshi number that did not match the service's own site, and
+// said medicines "balance brain chemicals". Contacts and claims below were checked against
+// the linked sources on that date. This page has not been reviewed by a clinician.
+
+const SOURCES = {
+  nhs: { name: 'NHS: Panic disorder', href: 'https://www.nhs.uk/mental-health/conditions/panic-disorder/' },
+  nimh: { name: 'NIMH: Panic disorder, what you need to know', href: 'https://www.nimh.nih.gov/health/publications/panic-disorder-when-fear-overwhelms' },
+  mayo: { name: 'Mayo Clinic: Panic attacks and panic disorder, treatment', href: 'https://www.mayoclinic.org/diseases-conditions/panic-attacks/diagnosis-treatment/drc-20376027' },
+};
+
+const classes = [
+  {
+    name: 'SSRIs (selective serotonin reuptake inhibitors)',
+    examples: 'Sertraline, fluoxetine, paroxetine',
+    notes: 'Usually the first medicine offered. The NHS says antidepressants can take 2 to 4 weeks to start working and up to 8 weeks to work fully.',
+  },
+  {
+    name: 'SNRIs (serotonin and noradrenaline reuptake inhibitors)',
+    examples: 'Venlafaxine',
+    notes: 'An alternative to SSRIs. Also takes several weeks to work.',
+  },
+  {
+    name: 'Tricyclic antidepressants',
+    examples: 'Imipramine, clomipramine',
+    notes: 'The NHS lists these for when SSRIs are not suitable. They tend to have more side effects.',
+  },
+  {
+    name: 'Benzodiazepines',
+    examples: 'Clonazepam, alprazolam',
+    notes: 'Can reduce panic symptoms quickly, but tolerance and dependence can develop, so NIMH says they may be prescribed only for brief periods. The NHS mentions clonazepam only for severe anxiety.',
+  },
+  {
+    name: 'Other medicines',
+    examples: 'Pregabalin; sometimes beta-blockers',
+    notes: 'The NHS mentions pregabalin as an option. NIMH notes that beta-blockers are not commonly prescribed for panic disorder.',
+  },
+];
 
 function Medication() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showBackToTop, setShowBackToTop] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 300);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-  };
-
-  const rowVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (i) => ({
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.5, delay: i * 0.1, ease: 'easeOut' },
-    }),
-  };
-
-  const listItemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, delay: i * 0.2, ease: 'easeOut' },
-    }),
-  };
-
   return (
-    <div className="min-h-screen pt-20 pb-24 font-body">
-      <div className="mx-auto max-w-5xl p-4 md:p-8">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-          <Motion.h1
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-4xl md:text-5xl font-bold text-ink-900 mb-4 md:mb-0"
-          >
-            Medication for Panic Attacks
-          </Motion.h1>
-          <Motion.button
-            onClick={() => document.getElementById('emergency-support').scrollIntoView({ behavior: 'smooth' })}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="btn-outline !border-red-700 !text-red-800"
-          >
-            Need immediate help?
-          </Motion.button>
-        </div>
+    <div className="mx-auto max-w-4xl px-4 pb-32 pt-24 sm:px-6">
+      <header className="max-w-2xl">
+        <p className="margin-note text-2xl">To talk through with a doctor</p>
+        <h1 className="mt-1 text-4xl font-bold text-ink-900 sm:text-5xl">Medication for panic disorder</h1>
+        <p className="mt-4 text-lg leading-relaxed text-ink-700">
+          Talking therapies, usually cognitive behavioural therapy (CBT), and medicine are the main treatments for panic
+          disorder. Some people use one, some both. This page is general information to help you ask questions. It is not
+          medical advice, and it has not been reviewed by a clinician.
+        </p>
+        <p className="mt-4">
+          <a href="#urgent-help" className="font-bold text-red-800 underline underline-offset-4">If you need help now</a>
+        </p>
+      </header>
 
-        <Motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-lg leading-relaxed text-ink-700 mb-8 max-w-2xl"
-        >
-          If you're experiencing panic attacks, know that you're not alone. Medications can play a crucial role in reducing the frequency and intensity of your symptoms, helping you regain control and improve your quality of life. Always work with a healthcare professional to find the treatment plan that’s right for you.
-        </Motion.p>
+      <section className="mt-12" aria-labelledby="types">
+        <h2 id="types" className="text-2xl font-bold text-ink-900">Medicines that may be offered</h2>
+        <p className="mt-2 leading-relaxed text-ink-700">
+          Which medicine is right, if any, depends on the person, their health and other medicines they take. Names and
+          approvals differ between countries.
+        </p>
+        <dl className="mt-6 border-t border-ink-900/10">
+          {classes.map((c) => (
+            <div key={c.name} className="border-b border-ink-900/10 py-5">
+              <dt className="text-lg font-bold text-ink-900">{c.name}</dt>
+              <dd className="mt-1 text-ink-800"><span className="font-bold">Examples:</span> {c.examples}</dd>
+              <dd className="mt-1 leading-relaxed text-ink-700">{c.notes}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
 
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-8"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-4">Types of Medications</h2>
-          <div className="overflow-x-auto">
-            <table className="paper-sheet w-full text-left border-collapse overflow-hidden">
-              <thead>
-                <tr className="border-b-2 border-ink-900 text-ink-900">
-                  <th className="p-3 font-semibold">Class</th>
-                  <th className="p-3 font-semibold">Examples</th>
-                  <th className="p-3 font-semibold">FDA Approved</th>
-                  <th className="p-3 font-semibold">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                  {[
-                    {
-                      class: 'SSRIs',
-                      examples: 'Fluoxetine (Prozac), Sertraline (Zoloft), Paroxetine (Paxil)',
-                      fda: 'Yes',
-                      notes: 'First choice; takes 4-6 weeks; side effects may include nausea, insomnia',
-                    },
-                    {
-                      class: 'SNRIs',
-                      examples: 'Venlafaxine (Effexor XR)',
-                      fda: 'Yes',
-                      notes: 'May cause dizziness, increased blood pressure',
-                    },
-                    {
-                      class: 'Benzodiazepines',
-                      examples: 'Alprazolam (Xanax), Clonazepam (Klonopin)',
-                      fda: 'Yes',
-                      notes: 'Rapid relief; risk of dependency with long-term use',
-                    },
-                    {
-                      class: 'Other Antidepressants',
-                      examples: 'Imipramine (Tofranil), Phenelzine (Nardil)',
-                      fda: 'No',
-                      notes: 'Less common; more side effects',
-                    },
-                  ].map((med, index) => (
-                    <Motion.tr
-                      key={index}
-                      custom={index}
-                      initial="hidden"
-                      whileInView="visible"
-                      viewport={{ once: true }}
-                      variants={rowVariants}
-                      className={'border-b border-rule align-top'}
-                    >
-                      <td className="p-3">{med.class}</td>
-                      <td className="p-3">{med.examples}</td>
-                      <td className="p-3">{med.fda}</td>
-                      <td className="p-3">{med.notes}</td>
-                    </Motion.tr>
-                  ))}
-                </tbody>
-            </table>
-          </div>
-        </Motion.div>
+      <section className="mt-12" aria-labelledby="before">
+        <h2 id="before" className="text-2xl font-bold text-ink-900">Things to know</h2>
+        <ul className="mt-4 list-disc space-y-2 pl-6 leading-relaxed text-ink-700">
+          <li>Do not start, stop or change a medicine without talking to the person who prescribes it. Stopping some medicines suddenly can cause withdrawal effects.</li>
+          <li>Tell your doctor or pharmacist about other medicines, supplements and alcohol use.</li>
+          <li>If side effects worry you, or you feel worse, contact your doctor or pharmacist.</li>
+          <li>How medicines work in panic disorder is not fully understood; the idea that they &ldquo;rebalance brain chemicals&rdquo; is an oversimplification.</li>
+        </ul>
+      </section>
 
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-8"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-4">How Medications Help</h2>
-          <p className="text-ink-700 max-w-3xl mx-auto md:mx-0">
-            Medications balance brain chemicals to help manage panic attacks. SSRIs and SNRIs boost serotonin and norepinephrine levels to stabilize mood and reduce anxiety over time. Benzodiazepines enhance GABA, a calming neurotransmitter, providing immediate relief during acute episodes.
-          </p>
-        </Motion.div>
+      <section className="paper-sheet mt-12 border-l-4 border-red-700 p-6" id="urgent-help" aria-labelledby="urgent-title">
+        <h2 id="urgent-title" className="text-2xl font-bold text-ink-900">If you need help now</h2>
+        <h3 className="mt-4 text-lg font-bold text-ink-900">Emergency: someone is in danger now</h3>
+        <p className="mt-1 leading-relaxed text-ink-800">
+          Call your local emergency number: <strong>999</strong> in the UK and in Bangladesh, <strong>112</strong> in the EU,{' '}
+          <strong>911</strong> in the US and Canada. Or go to the nearest emergency department.
+        </p>
+        <h3 className="mt-5 text-lg font-bold text-ink-900">Crisis lines: to talk to someone now</h3>
+        <ul className="mt-1 list-disc space-y-1 pl-6 leading-relaxed text-ink-800">
+          <li><strong>UK and Ireland:</strong> Samaritans, call <a className="underline" href="tel:116123">116 123</a>, free, 24 hours a day.</li>
+          <li><strong>US:</strong> 988 Suicide &amp; Crisis Lifeline, call or text <a className="underline" href="tel:988">988</a>, 24 hours a day.</li>
+        </ul>
+        <h3 className="mt-5 text-lg font-bold text-ink-900">Not urgent: Bangladesh</h3>
+        <ul className="mt-1 list-disc space-y-1 pl-6 leading-relaxed text-ink-800">
+          <li>
+            <strong>National Institute of Mental Health (NIMH), Bangladesh</strong>, Sher-e-Bangla Nagar, Dhaka. A public hospital, not a
+            helpline: <a className="underline" href="tel:+880223374409">+880 2-223374409</a>,{' '}
+            <a className="underline" href="https://nimh.gov.bd/" target="_blank" rel="noopener noreferrer">nimh.gov.bd</a>.
+          </li>
+          <li>
+            <strong>Moner Bondhu</strong>, a paid counselling service (online and in person):{' '}
+            <a className="underline" href="https://monerbondhu.com/" target="_blank" rel="noopener noreferrer">monerbondhu.com</a>.
+          </li>
+        </ul>
+        <p className="mt-4 text-sm text-ink-700">Contacts checked against each service&apos;s own website on 21 November 2026. Numbers change; check before relying on one.</p>
+      </section>
 
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-8"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-4">Important Considerations</h2>
-          <ul className="list-disc list-inside text-ink-700 space-y-2 max-w-3xl mx-auto md:mx-0">
-            {[
-              '<strong>Side Effects:</strong> Common with all medications—discuss with your doctor to weigh benefits and risks.',
-              '<strong>Time to Effectiveness:</strong> Antidepressants may take 4-6 weeks; benzodiazepines work almost instantly.',
-              '<strong>Therapy Boost:</strong> Combining medication with therapy, like CBT, often improves outcomes.',
-              '<strong>Follow Medical Advice:</strong> Never start or stop medication without consulting your healthcare provider.',
-            ].map((item, index) => (
-              <Motion.li
-                key={index}
-                custom={index}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={listItemVariants}
-                dangerouslySetInnerHTML={{ __html: item }}
-              />
-            ))}
-          </ul>
-        </Motion.div>
-
-        <Motion.div
-          id="emergency-support"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-10 paper-sheet border-l-4 border-red-700 p-6"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-2">Emergency Support</h2>
-          <p className="text-ink-800 mb-4">
-            If you're having a severe panic attack or thoughts of self-harm, reach out immediately. Call the <strong>SAMHSA National Helpline</strong> at <strong>1-800-662-4357</strong> (24/7 support) or seek emergency medical attention if symptoms feel unmanageable.
-          </p>
-          <h3 className="text-xl font-bold text-ink-900 mb-2">Emergency Support (Bangladesh)</h3>
-          <ul className="list-disc list-inside text-ink-800 space-y-2">
-            <li>
-              <strong>National Institute of Mental Health (NIMH)</strong> – Sher‑E‑Bangla Nagar, Dhaka‑1207;{' '}
-              <strong>Phone:</strong> +8802‑223374409;{' '}
-              <a href="http://nimh.gov.bd" target="_blank" rel="noopener noreferrer" className="underline hover:text-secondary-600">
-                nimh.gov.bd
-              </a>
+      <section className="mt-12" aria-labelledby="sources">
+        <h2 id="sources" className="text-2xl font-bold text-ink-900">Sources</h2>
+        <ul className="mt-3 space-y-2">
+          {Object.values(SOURCES).map((s) => (
+            <li key={s.href}>
+              <a href={s.href} target="_blank" rel="noopener noreferrer" className="font-bold text-ink-900 underline underline-offset-4">{s.name}</a>
             </li>
-            <li>
-              <strong>Psychological Health & Wellness Clinic (PHWC)</strong> – 1st Fl., House 4D, Road 73, Gulshan 2, Dhaka;{' '}
-              <strong>Phone:</strong> +88017‑777‑2763;{' '}
-              <a href="https://phwcbd.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-secondary-600">
-                phwcbd.org
-              </a>
-            </li>
-            <li>
-              <strong>Moner Bondhu</strong> (24/7 counselling & crisis helpline):{' '}
-              <strong>Phone:</strong> +88017‑7953‑3333;{' '}
-              <a href="https://monerbondhu.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-secondary-600">
-                monerbondhu.org
-              </a>
-            </li>
-          </ul>
-        </Motion.div>
-
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-8"
-        >
-          <Motion.button
-            onClick={() => setIsModalOpen(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="btn-ink"
-          >
-            Learn More About Medication
-          </Motion.button>
-        </Motion.div>
-
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={sectionVariants}
-          className="mt-8"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-4">Additional Resources</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto md:mx-0">
-            {[
-              { name: 'Mayo Clinic', url: 'https://www.mayoclinic.org/diseases-conditions/panic-attacks/diagnosis-treatment/drc-20376027' },
-              { name: 'Verywell Mind', url: 'https://www.verywellmind.com/medications-for-panic-disorder-2584307' },
-              { name: 'AAFP', url: 'https://www.aafp.org/pubs/afp/afp-community-blog/entry/what-are-the-best-medications-for-panic-disorder.html' },
-              { name: 'WebMD', url: 'https://www.webmd.com/anxiety-panic/understanding-panic-attack-treatment' },
-            ].map((resource, index) => (
-              <Motion.a
-                key={index}
-                href={resource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="btn-outline justify-center"
-              >
-                {resource.name}
-              </Motion.a>
-            ))}
-          </div>
-        </Motion.div>
-
-        <Motion.div
-          animate={{
-            boxShadow: [
-              '0 0 10px rgba(0,0,0,0.1)',
-              '0 0 20px rgba(0,0,0,0.2)',
-              '0 0 10px rgba(0,0,0,0.1)',
-            ],
-          }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          className="mt-12 paper-sheet p-6"
-        >
-          <h2 className="text-2xl font-bold text-ink-900 mb-4">Expert Insight</h2>
-          <blockquote className="text-ink-700 italic">
-            "Medications can be valuable in managing panic attacks when combined with therapy." - Dr. Jane Smith, Psychiatrist
-          </blockquote>
-        </Motion.div>
-      </div>
-
-      {showBackToTop && (
-        <Motion.button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="fixed bottom-20 right-4 z-30 paper-sheet border-2 border-ink-900 px-3 py-2 font-bold text-ink-900"
-          aria-label="Back to top"
-        >
-          ↑
-        </Motion.button>
-      )}
-
-      <AnimatePresence>
-        {isModalOpen && (
-          <Motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-            onClick={() => setIsModalOpen(false)}
-          >
-            <Motion.div
-              className="paper-sheet p-4 md:p-8 max-w-lg max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-2xl font-bold text-ink-900 mb-4">More About Medication</h2>
-              <p className="text-ink-700 mb-4">
-                Here’s detailed information about medications commonly used for panic attacks. Each class has unique benefits and considerations to discuss with your doctor.
-              </p>
-
-              <h3 className="text-xl font-bold text-ink-900 mb-2">SSRIs</h3>
-              <ul className="list-disc list-inside text-ink-700 mb-4">
-                <li><strong>How They Work:</strong> Increase serotonin to stabilize mood.</li>
-                <li><strong>Examples:</strong> Fluoxetine, Sertraline, Paroxetine.</li>
-                <li><strong>Side Effects:</strong> Nausea, insomnia, sexual dysfunction.</li>
-                <li><strong>Special Notes:</strong> Takes 4-6 weeks; often first choice due to safety.</li>
-              </ul>
-
-              <h3 className="text-xl font-bold text-ink-900 mb-2">SNRIs</h3>
-              <ul className="list-disc list-inside text-ink-700 mb-4">
-                <li><strong>How They Work:</strong> Boost serotonin and norepinephrine.</li>
-                <li><strong>Examples:</strong> Venlafaxine.</li>
-                <li><strong>Side Effects:</strong> Dizziness, increased blood pressure.</li>
-                <li><strong>Special Notes:</strong> Similar onset to SSRIs; monitor blood pressure.</li>
-              </ul>
-
-              <h3 className="text-xl font-bold text-ink-900 mb-2">Benzodiazepines</h3>
-              <ul className="list-disc list-inside text-ink-700 mb-4">
-                <li><strong>How They Work:</strong> Enhance GABA for rapid calming.</li>
-                <li><strong>Examples:</strong> Alprazolam, Clonazepam.</li>
-                <li><strong>Side Effects:</strong> Drowsiness, dependence risk.</li>
-                <li><strong>Special Notes:</strong> Short-term use; not for those with substance abuse history.</li>
-              </ul>
-
-              <h3 className="text-xl font-bold text-ink-900 mb-2">Other Antidepressants</h3>
-              <ul className="list-disc list-inside text-ink-700 mb-4">
-                <li><strong>How They Work:</strong> Varies (e.g., TCAs block reuptake; MAOIs affect multiple neurotransmitters).</li>
-                <li><strong>Examples:</strong> Imipramine (TCA), Phenelzine (MAOI).</li>
-                <li><strong>Side Effects:</strong> Dry mouth, dietary restrictions (MAOIs).</li>
-                <li><strong>Special Notes:</strong> Less common; used if others fail.</li>
-              </ul>
-
-              <h3 className="text-xl font-bold text-ink-900 mb-2">Emergency Contacts</h3>
-              <p className="text-ink-700">
-                For immediate help, call the <strong>SAMHSA National Helpline</strong> at <strong>1-800-662-4357</strong> or seek emergency care if you’re in crisis.
-              </p>
-
-              <Motion.button
-                onClick={() => setIsModalOpen(false)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="mt-6 btn-ink"
-              >
-                Close
-              </Motion.button>
-            </Motion.div>
-          </Motion.div>
-        )}
-      </AnimatePresence>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

@@ -10,14 +10,13 @@ import '@fontsource/caveat/700.css'
 import '@fontsource/kalam/400.css'
 import '@fontsource/kalam/700.css'
 import './index.css'
+import { restoredPath } from './services/redirectPath.js'
 
-// Coming back from public/404.html on GitHub Pages: restore the page they asked for
-// (e.g. /relevia/?p=/coping -> /relevia/coping) before the router reads the URL.
-const redirectPath = new URLSearchParams(window.location.search).get('p');
-if (redirectPath) {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  window.history.replaceState(null, '', base + redirectPath + window.location.hash);
-}
+// Coming back from public/404.html: restore the page they asked for before the router
+// reads the URL. See services/redirectPath.js for why nested ?p= values are unwrapped.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const target = restoredPath(window.location.search, window.location.pathname, base);
+if (target !== null) window.history.replaceState(null, '', base + target + window.location.hash);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

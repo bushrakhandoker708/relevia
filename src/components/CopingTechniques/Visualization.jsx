@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Volume2, VolumeX, Settings, ChevronLeft, ChevronRight, Heart, User, Plus, X } from 'lucide-react';
 import TechniqueShell from './TechniqueShell';
+import useTechniqueEvents from './useTechniqueEvents';
 import PlaceScene from './PlaceScene';
 import { speakSoftly, softVoices } from '../../services/softVoice';
 
@@ -388,6 +389,7 @@ const AdvancedVisualization = () => {
   const [sessionTime, setSessionTime] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(() => readStore('visualization-completed-sessions', 0));
   const [isCompleted, setIsCompleted] = useState(false);
+  useTechniqueEvents('visualization', isActive || isCompleted, isCompleted);
   const [showSettings, setShowSettings] = useState(false);
   const [showPersonalSettings, setShowPersonalSettings] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -734,11 +736,11 @@ const AdvancedVisualization = () => {
 
       <div className="mt-8 flex flex-wrap gap-5">
         <button type="button" onClick={() => { setShowSettings(!showSettings); setShowPersonalSettings(false); }} aria-expanded={showSettings}
-          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
           <Settings className="h-4 w-4" aria-hidden="true" /> Voice and timing
         </button>
         <button type="button" onClick={() => { setShowPersonalSettings(!showPersonalSettings); setShowSettings(false); }} aria-expanded={showPersonalSettings}
-          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
           <User className="h-4 w-4" aria-hidden="true" /> Things to avoid and favourites
         </button>
       </div>

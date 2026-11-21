@@ -22,6 +22,8 @@ That choice has limits. Saved chats have no application encryption or authentica
 
 The delete control clears chat records and chat personalisation, invalidates pending writes and attempts to remove the old shared IndexedDB database. Blocked deletion is reported. Journals and other coping-tool preferences use separate storage. Speech starts disabled. No differential-privacy mechanism is implemented.
 
+The journal follows the same rule. Entries and drafts stay in page memory until the person presses **Keep my journal on this device**; only then are they written to `localStorage`. Pressing it again moves them back into memory and removes the stored copy. A journal saved by an older version is detected, and the page asks whether to keep it. Stored journal entries are not encrypted and have no automatic expiry. Every key the site stores, and how to delete it, is listed in [`docs/DATA_FLOWS.md`](docs/DATA_FLOWS.md).
+
 ## Run locally
 
 From the application repository:
@@ -42,7 +44,7 @@ npm run build
 
 ## What has been verified
 
-On 21 November 2026, `npm test` passed 202 JavaScript tests. They cover storage boundaries, inference failure behaviour, safety routing (S3), the reply guard (G3), the release policies (R0–R3), and a check that no source file contains double-encoded text. Several tests check that no point in a stream shows text the guard later rejects. The production build and the full lint also passed. The same day, a fresh clone from GitHub installed with `npm ci` and passed tests, lint and build. Browser behaviour during reloads, two open tabs, deletion during generation, model switching, network failure and GPU loss is still untested. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
+On 21 November 2026, after a clean `npm ci`, `npm test` passed 236 JavaScript tests, and lint, the production build, `npm run privacy:scan` and `npm run release:check` passed. They cover storage boundaries, inference failure behaviour, safety routing (S3), the reply guard (G3), the release policies (R0–R3), and a check that no source file contains double-encoded text. Several tests check that no point in a stream shows text the guard later rejects. Earlier the same day, a fresh clone from GitHub installed with `npm ci` and passed tests, lint and build. Browser behaviour during reloads, two open tabs, deletion during generation, model switching, network failure and GPU loss is still untested. These checks support specific software claims; they do not measure empathy or clinical safety. Browser interaction, lifecycle behaviour and two-tab deletion still need end-to-end confirmation. The build reports dependency and bundle-size warnings.
 
 The Milestone 2 report is intended to accompany this branch once published. Until then, the report and machine-readable evidence are in the separate local research repository. Final milestone sign-off remains open, and no model training or deployment was performed in this milestone.
 
@@ -64,4 +66,6 @@ git config core.hooksPath .githooks
 
 Keep the application and research histories separate. Changes should explain the problem, the selected correction and the checks that support it. Follow [the writing guide](docs/WRITING_VOICE_GUIDE.md), preserve failed checks and use synthetic dialogue in tests.
 
-`npm run build:pages` builds for the `/relevia/` base path. `npm run deploy` publishes the built site to `gh-pages`; it is a publishing operation, not a local verification command. Review the outstanding browser and historical-data issues before a public release.
+The site is deployed on Vercel at the root path. `vercel.json` sends every route to `index.html`, so reloading a page such as `/coping` works. `npm run build:pages` builds for the `/relevia/` base path used by GitHub Pages, and `npm run deploy` publishes that build to the `gh-pages` branch. Both are publishing operations, not local checks. The `gh-pages` branch still holds an old build from April 2025 that predates the privacy clean-up and still contains contact details removed from the current code. It should be replaced or GitHub Pages switched off before the project is shared.
+
+The information pages are general information, not medical advice, and have not been reviewed by a clinician. The Medication page lists its sources and the date on which its contact details were checked.

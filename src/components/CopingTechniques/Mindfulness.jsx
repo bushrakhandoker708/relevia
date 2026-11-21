@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion';
 import TechniqueShell from './TechniqueShell';
+import useTechniqueEvents from './useTechniqueEvents';
 
 /**
  * 5-4-3-2-1 grounding. The page's own look: the room's colour shifts with each sense, and
@@ -9,15 +10,15 @@ import TechniqueShell from './TechniqueShell';
  */
 
 const SENSES = [
-  { sense: 'Sight', n: 5, what: 'things you can see', tint: '#D9E9F8', ink: '#3E6FD8',
+  { sense: 'Sight', n: 5, what: 'things you can see', tint: '#D9E9F8', ink: '#3A67C9',
     prompt: 'Look slowly around. Pick out colours, shapes, the way light falls on something.', example: 'the edge of a cup, a blue book…' },
-  { sense: 'Touch', n: 4, what: 'things you can feel', tint: '#DDEFE2', ink: '#4E9E6A',
+  { sense: 'Touch', n: 4, what: 'things you can feel', tint: '#DDEFE2', ink: '#3A764F',
     prompt: 'Your feet on the floor, the chair under you, the fabric of your sleeve, the air on your skin.', example: 'cool desk under my hand…' },
-  { sense: 'Sound', n: 3, what: 'sounds you can hear', tint: '#E7E2F7', ink: '#7F6DCE',
+  { sense: 'Sound', n: 3, what: 'sounds you can hear', tint: '#E7E2F7', ink: '#6E5FB3',
     prompt: 'Listen for the nearest sound, then the furthest. Quiet ones count too.', example: 'the fridge humming…' },
-  { sense: 'Smell', n: 2, what: 'things you can smell', tint: '#FBEBD2', ink: '#C58423',
+  { sense: 'Smell', n: 2, what: 'things you can smell', tint: '#FBEBD2', ink: '#92621A',
     prompt: 'Breathe in gently through your nose. If there is nothing, think of a smell you like.', example: 'soap, coffee…' },
-  { sense: 'Taste', n: 1, what: 'thing you can taste', tint: '#FADDE4', ink: '#C94B68',
+  { sense: 'Taste', n: 1, what: 'thing you can taste', tint: '#FADDE4', ink: '#B5445E',
     prompt: 'Notice the taste in your mouth, or take a sip of water and notice that.', example: 'toothpaste, tea…' },
 ];
 
@@ -62,6 +63,7 @@ export default function Mindfulness() {
   const [comfortIndex, setComfortIndex] = useState(0);
   const inputRef = useRef(null);
   const autoNext = useRef(null);
+  useTechniqueEvents('mindfulness', phase !== 'intro', phase === 'done');
   const s =SENSES[step];
   const count = noticed[step].length;
   const left = Math.max(s.n - count, 0);

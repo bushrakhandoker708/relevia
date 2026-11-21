@@ -22,7 +22,25 @@ export const TECHNIQUES = {
   activity: { label: 'moving a little', title: 'Moving', to: '/coping/activity', color: 'sage', pitch: 'gentle movement to use up the adrenaline' },
 };
 
-const empty = () => ({ version: 1, firstSeen: null, lastSeen: null, previousSeen: null, visits: 0, techniques: {}, chats: 0, aboutRead: false });
+// techniques: page opened. started: the exercise itself was begun (for example the
+// breathing circle started, or the first character typed in the journal). completed: the
+// exercise reached its defined end (see DONE_MEANS). Older records only have `techniques`.
+const empty = () => ({ version: 1, firstSeen: null, lastSeen: null, previousSeen: null, visits: 0, techniques: {}, started: {}, completed: {}, chats: 0, aboutRead: false });
+
+/** What "completed" means for each technique, so wording never claims more than this. */
+export const DONE_MEANS = {
+  breathing: 'one full breathing round',
+  mindfulness: 'all five senses',
+  relaxation: 'the last step of an exercise',
+  visualization: 'the last step of a visualisation',
+  journaling: 'an entry saved',
+  affirmations: null, // no meaningful end: reading is open-ended
+  activity: 'the last move of a routine',
+};
+
+const count = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0);
+const counts = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {})
+  .filter(([k]) => TECHNIQUES[k]).map(([k, v]) => [k, count(v)]).filter(([, v]) => v > 0));
 
 const store = () => {
   try { return globalThis.localStorage || null; } catch { return null; }
@@ -34,7 +52,20 @@ export function readActivity() {
     if (!raw) return empty();
     const v = JSON.parse(raw);
     if (v?.version !== 1) return empty();
-    return { ...empty(), ...v, techniques: { ...(v.techniques || {}) } };
+    // Malformed or hand-edited records are cleaned rather than trusted.
+    return {
+      ...empty(),
+      firstSeen: Number.isFinite(v.firstSeen) ? v.firstSeen : null,
+      lastSeen: Number.isFinite(v.lastSeen) ? v.lastSeen : null,
+      previousSeen: Number.isFinite(v.previousSeen) ? v.previousSeen : null,
+      visits: count(v.visits),
+      chats: count(v.chats),
+      aboutRead: v.aboutRead === true,
+      lastTechnique: TECHNIQUES[v.lastTechnique] ? v.lastTechnique : undefined,
+      techniques: counts(v.techniques),
+      started: counts(v.started),
+      completed: counts(v.completed),
+    };
   } catch {
     return empty();
   }
@@ -71,6 +102,30 @@ export function recordTechnique(key) {
   a.techniques[key] = (a.techniques[key] || 0) + 1;
   a.lastTechnique = key;
   write(a);
+}
+
+/** The exercise itself was begun on this page. Call once per run, not per render. */
+export function recordTechniqueStart(key) {
+  if (!TECHNIQUES[key]) return;
+  const a = readActivity();
+  a.started[key] = (a.started[key] || 0) + 1;
+  write(a);
+}
+
+/** The exercise reached its defined end (DONE_MEANS). */
+export function recordTechniqueDone(key) {
+  if (!TECHNIQUES[key] || !DONE_MEANS[key]) return;
+  const a = readActivity();
+  a.completed[key] = (a.completed[key] || 0) + 1;
+  write(a);
+}
+
+/** The strongest thing recorded for a technique: 'completed', 'started', 'opened' or null. */
+export function techniqueLevel(a, key) {
+  if (a?.completed?.[key] > 0) return 'completed';
+  if (a?.started?.[key] > 0) return 'started';
+  if (a?.techniques?.[key] > 0) return 'opened';
+  return null;
 }
 
 export function recordAbout() {

@@ -90,7 +90,7 @@ export default function Letter({ letter, onForget }) {
       )}
 
       <p className="mt-10 border-t border-ink-900/10 pt-4 text-xs leading-relaxed text-ink-700">
-        To write this letter, Relevia counts which pages and techniques you open and how many chats you start. It keeps those numbers, and any affirmations you chose to keep, in this browser only, never what you wrote.{' '}
+        To write this letter, Relevia counts which pages and techniques you open, start and finish, and how many chats you start. It keeps those numbers, and any affirmations you chose to keep, in this browser only, never what you wrote.{' '}
         <button type="button" className="font-bold underline underline-offset-2" onClick={() => { forgetActivity(); onForget?.(); }}>
           Forget them
         </button>

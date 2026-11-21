@@ -24,8 +24,28 @@
     color: var(--ink);
     font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* Long words ("Visualisation", web addresses) may break rather than push the page
+       sideways when text is enlarged to 200% on a narrow phone. */
+    overflow-wrap: anywhere;
+    hyphens: auto;
   }
   :focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; border-radius: 4px; }
+
+  /* Floating controls on the bottom edge ("Talk to Relevia" left, "Quick calm" right).
+     Each is capped at just under half the width, so they cannot overlap at any width or
+     text size, and both clear the home indicator and rounded corners on phones. */
+  .float-dock {
+    position: fixed;
+    bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+    max-width: calc(50vw - 1.25rem);
+  }
+  .float-dock-left { left: max(0.75rem, env(safe-area-inset-left)); }
+  .float-dock-right { right: max(0.75rem, env(safe-area-inset-right)); }
+  @media (min-width: 640px) {
+    .float-dock { bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem)); }
+    .float-dock-left { left: 1.5rem; }
+    .float-dock-right { right: 1.5rem; }
+  }
   ::selection { background: rgba(242, 193, 78, 0.45); }
 }
 
@@ -65,17 +85,20 @@
   .btn-ink {
     display: inline-flex; align-items: center; gap: .5rem;
     background: var(--ink); color: var(--sheet); border: 2px solid var(--ink);
-    padding: .8rem 1.35rem; border-radius: 10px; font-weight: 700; text-decoration: none;
+    padding: .8rem clamp(.85rem, 4vw, 1.35rem); border-radius: 10px; font-weight: 700; text-decoration: none;
+    max-width: 100%; overflow-wrap: anywhere; /* never wider than the screen, even at 200% text */
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .btn-ink:hover { transform: translateY(-1px); box-shadow: 0 6px 0 -2px rgba(35, 50, 74, .25); }
   .btn-outline {
     display: inline-flex; align-items: center; gap: .5rem;
     background: transparent; color: var(--ink); border: 2px solid var(--ink);
-    padding: .8rem 1.35rem; border-radius: 10px; font-weight: 700; text-decoration: none;
+    padding: .8rem clamp(.85rem, 4vw, 1.35rem); border-radius: 10px; font-weight: 700; text-decoration: none;
+    max-width: 100%; overflow-wrap: anywhere;
   }
   .btn-outline:hover { background: rgba(35, 50, 74, .06); }
-  .margin-note { font-family: Caveat, cursive; color: var(--sage); line-height: 1.15; }
+  /* a shade darker than --sage so small handwritten notes reach 4.5:1 on the paper */
+  .margin-note { font-family: Caveat, cursive; color: #55725E; line-height: 1.15; }
 
   /* Pencil writing: graphite grey with a slightly grainy edge. Used in the chat. */
   .pencil { font-family: Kalam, Caveat, cursive; color: var(--pencil); }

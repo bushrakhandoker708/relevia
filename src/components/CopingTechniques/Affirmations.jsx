@@ -6,6 +6,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline';
 import TechniqueShell from './TechniqueShell';
+import useTechniqueEvents from './useTechniqueEvents';
 import { speakSoftly, softVoices } from '../../services/softVoice';
 import { SETS, readKept, toggleKept } from '../../services/affirmations';
 
@@ -44,6 +45,10 @@ export default function Affirmations() {
   const [size, setSize] = useState('Medium');
   const [showSettings, setShowSettings] = useState(false);
   const stopRef = useRef(null);
+  // Started once someone moves past the first sentence or listens to one. Reading has no
+  // meaningful end, so nothing is ever recorded as completed.
+  const [engaged, setEngaged] = useState(false);
+  useTechniqueEvents('affirmations', engaged, false);
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   const lines = setKey === 'kept' ? kept : SETS[setKey].lines;
@@ -67,11 +72,13 @@ export default function Affirmations() {
     if (!lines.length) return;
     stopRef.current?.(); setSpeaking(false);
     setDir(step);
+    setEngaged(true);
     setIndex((i) => (i + step + lines.length) % lines.length);
   }, [lines.length]);
 
   const speak = useCallback(() => {
     if (speaking) { hush(); return; }
+    setEngaged(true);
     stopRef.current = speakSoftly(text, {
       allowOnline: true, voice, rate: speed,
       onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false), onError: () => setSpeaking(false),
@@ -112,7 +119,7 @@ export default function Affirmations() {
         <div className="flex flex-wrap gap-x-6 gap-y-1">
           {tabs.map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={setKey === k} onClick={() => pick(k)}
-              className={`relative whitespace-nowrap py-2 text-lg font-bold transition-colors ${setKey === k ? 'text-ink-900' : 'text-ink-700/70 hover:text-ink-900'}`}>
+              className={`relative whitespace-nowrap py-2 text-lg font-bold transition-colors ${setKey === k ? 'text-ink-900' : 'text-ink-700 hover:text-ink-900'}`}>
               {label}
               {setKey === k && (
                 <Motion.span layoutId="aff-tab" className="absolute inset-x-0 -bottom-0.5 h-1 rounded-full bg-rose-400"

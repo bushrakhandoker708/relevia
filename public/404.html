@@ -4,13 +4,19 @@
     <meta charset="utf-8" />
     <title>Relevia</title>
     <script>
-      // GitHub Pages has no SPA routing, so opening /relevia/coping directly lands here.
-      // FIX: my old version just sent everyone back to the home page and lost the path.
-      // Now I pass the path along and main.jsx puts it back before React starts.
-      var base = '/relevia';
+      // A static host with no single-page routing (GitHub Pages) serves this file for
+      // /coping and other app paths. Pass the path on as ?p= so main.jsx can restore it.
+      // Only GitHub Pages serves the site under /relevia/; everywhere else the base is '/'.
+      // A URL that already carries ?p= is never redirected again: doing so on Vercel used
+      // to nest the path inside itself on every refresh.
       var l = window.location;
-      var rest = l.pathname.indexOf(base) === 0 ? l.pathname.slice(base.length) : l.pathname;
-      l.replace(base + '/?p=' + encodeURIComponent(rest + l.search) + l.hash);
+      var base = /\.github\.io$/.test(l.hostname) ? '/relevia' : '';
+      if (/[?&]p=/.test(l.search)) {
+        l.replace(base + '/');
+      } else {
+        var rest = base && l.pathname.indexOf(base) === 0 ? l.pathname.slice(base.length) : l.pathname;
+        l.replace(base + '/?p=' + encodeURIComponent(rest + l.search) + l.hash);
+      }
     </script>
   </head>
 </html>

@@ -10,6 +10,7 @@ import {
   ChevronRightIcon
 } from '@heroicons/react/24/solid';
 import TechniqueShell from './TechniqueShell';
+import useTechniqueEvents from './useTechniqueEvents';
 import { speakSoftly } from '../../services/softVoice';
 import BodyGlow from './BodyGlow';
 
@@ -278,6 +279,7 @@ const AdvancedRelaxation = () => {
   const [sessionTime, setSessionTime] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  useTechniqueEvents('relaxation', isActive || isCompleted, isCompleted);
   const [initialAnxiety, setInitialAnxiety] = useState(5);
   const [showSettings, setShowSettings] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -480,7 +482,7 @@ const AdvancedRelaxation = () => {
               <PlayIcon className="h-5 w-5" aria-hidden="true" /> Start {uk(currentTechnique.name).toLowerCase()}
             </button>
             <button type="button" onClick={() => setShowEmergencyHelp(!showEmergencyHelp)} aria-expanded={showEmergencyHelp}
-              className="inline-flex items-center gap-1.5 text-sm font-bold text-red-800 underline underline-offset-4">
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-red-800 underline underline-offset-4">
               <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" /> Crisis support
             </button>
           </div>
@@ -560,7 +562,7 @@ const AdvancedRelaxation = () => {
 
       <div className="mt-10">
         <button type="button" onClick={() => setShowSettings(!showSettings)} aria-expanded={showSettings}
-          className="inline-flex items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink-800 underline underline-offset-4">
           <AdjustmentsHorizontalIcon className="h-4 w-4" aria-hidden="true" /> Voice and timing
         </button>
       </div>

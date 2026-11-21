@@ -101,9 +101,9 @@ function AlarmStory({ wide }) {
   return (
     <section ref={ref} className={pinned ? 'relative h-[260vh]' : 'relative'} aria-labelledby="alarm-heading">
       <div className={pinned ? 'sticky top-0 flex h-screen items-center' : 'py-16'}>
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
           <div className="flex justify-center" aria-hidden="true">
-            <Motion.div className="relative h-56 w-56 rounded-full sm:h-72 sm:w-72"
+            <Motion.div className="relative aspect-square w-56 max-w-full rounded-full sm:w-72"
               style={{ scale: pinned ? pulse : 1, background: hue, boxShadow: '0 40px 80px -30px rgba(43,45,66,0.45)' }}>
               <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95), rgba(255,255,255,0) 45%)' }} />
               <div className="absolute inset-0 rounded-full" style={{ boxShadow: 'inset -18px -24px 40px rgba(0,0,0,0.18)' }} />

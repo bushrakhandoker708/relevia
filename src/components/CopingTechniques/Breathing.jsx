@@ -1,7 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import TechniqueShell from './TechniqueShell';
-import Ballpit from '../Balls';
+import useTechniqueEvents from './useTechniqueEvents';
+import { PATTERNS, DEFAULT_PATTERN, patternSummary } from '../../services/breathingPatterns';
+
+// The moving balls are decoration and pull in three.js (about 100 KB compressed). They load
+// after the exercise is on screen, and not at all when they are switched off or the person
+// prefers reduced motion, so the circle never waits for them.
+const Ballpit = lazy(() => import('../Balls'));
 
 const readPref = (key, fallback) => {
   try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1'; } catch { return fallback; }
@@ -9,53 +15,6 @@ const readPref = (key, fallback) => {
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-
-const initialPatterns = {
-  calm: {
-    name: 'Ocean Calm',
-    description: 'Gentle waves of tranquility',
-    icon: '🌊',
-    phases: [
-      { name: 'breathe in', targetScale: 1.25, duration: 4000, instruction: 'Draw in peace and stillness' },
-      { name: 'breathe out', targetScale: 1, duration: 6000, instruction: 'Let go of stress completely' },
-    ],
-    color: '#06B6D4'
-  },
-  box: {
-    name: 'Box Breathing',
-    description: 'Structured calm for focus',
-    icon: '⬜',
-    phases: [
-      { name: 'inhale', targetScale: 1.4, duration: 4000, instruction: 'Fill your lungs with serenity' },
-      { name: 'hold', targetScale: 1.4, duration: 4000, instruction: 'Rest in this peaceful moment' },
-      { name: 'exhale', targetScale: 1, duration: 4000, instruction: 'Release all tension slowly' },
-      { name: 'pause', targetScale: 1, duration: 4000, instruction: 'Embrace the quiet space' },
-    ],
-    color: '#8B5CF6'
-  },
-  fourSevenEight: {
-    name: '4-7-8 Sleep',
-    description: 'Deep relaxation for rest',
-    icon: '😴',
-    phases: [
-      { name: 'inhale', targetScale: 1.5, duration: 4000, instruction: 'Breathe in through your nose softly' },
-      { name: 'hold', targetScale: 1.5, duration: 7000, instruction: 'Hold this peaceful breath' },
-      { name: 'exhale', targetScale: 1, duration: 8000, instruction: 'Slowly release through your mouth' },
-    ],
-    color: '#10B981'
-  },
-  gentle: {
-    name: 'Gentle Flow',
-    description: 'Natural and effortless',
-    icon: '🍃',
-    phases: [
-      { name: 'breathe in', targetScale: 1.3, duration: 3500, instruction: 'Welcome in fresh energy' },
-      { name: 'hold softly', targetScale: 1.3, duration: 1500, instruction: 'Feel the gentle pause' },
-      { name: 'breathe out', targetScale: 1, duration: 4500, instruction: 'Release with gentle ease' },
-    ],
-    color: '#22C55E'
-  },
-};
 
 const calmingAffirmations = [
   { text: "You can pause and ask for support", type: "safety" },
@@ -70,16 +29,11 @@ const calmingAffirmations = [
   { text: "Serenity surrounds you", type: "peace" },
 ];
 
-const secondsOf = (ms) => Math.round(ms / 1000);
-const patternSummary = (p) => p.phases.map((ph) => `${secondsOf(ph.duration)} ${ph.name}`).join(', ');
-
-// What a phase does to the circle: grow, hold, shrink, or rest small.
-const phaseKind = (phase) => (phase.name.includes('hold') ? 'hold'
-  : /\bin\b|inhale/.test(phase.name) ? 'in'
-    : /out|exhale/.test(phase.name) ? 'out' : 'pause');
+// What a phase does to the circle comes from its explicit kind (breathingPatterns.js).
+const phaseKind = (phase) => (phase.kind === 'rest' ? 'pause' : phase.kind);
 
 function Breathing() {
-  const [selectedPattern, setSelectedPattern] = useState('calm');
+  const [selectedPattern, setSelectedPattern] = useState(DEFAULT_PATTERN);
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
   // The 3D balls from the original page, back behind the paper. Off for anyone who has
@@ -113,7 +67,7 @@ function Breathing() {
   // scroll timing ("bio-feedback"), so the count someone was following drifted without
   // warning, and the mouse listener was never removed. The pace is now exactly what the
   // pattern says.
-  const pattern = initialPatterns[selectedPattern];
+  const pattern = PATTERNS[selectedPattern];
 
   const buildAudio = () => {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -206,6 +160,8 @@ function Breathing() {
     return () => clearInterval(interval);
   }, [isRunning]);
 
+  // Started: the circle was set going. Completed: one full round of the pattern.
+  useTechniqueEvents('breathing', currentPhaseIndex !== -1, cycle >= 1);
   const currentPhase = currentPhaseIndex !== -1 ? pattern.phases[currentPhaseIndex] : null;
   // FIX: the old scale shrank during a hold and jumped straight to small on the out-breath
   // (the out phase's own target is 1). In grows to the pattern's largest size, a hold keeps
@@ -286,13 +242,13 @@ function Breathing() {
   return (
     <TechniqueShell icon="breathing" color="leaf" note="Slow it down" title="Breathing" wide fit
       backdrop={showBalls ? (
-        <Ballpit key={selectedPattern} followCursor={!isSmall}
+        <Suspense fallback={null}><Ballpit key={selectedPattern} followCursor={!isSmall}
           colors={[pattern.color, '#ffffff', '#F2C14E', pattern.color]}
-          count={isSmall ? 30 : 60} gravity={0} friction={0.9975} maxVelocity={0.05} minSize={0.4} maxSize={0.9} className="opacity-90" />
+          count={isSmall ? 30 : 60} gravity={0} friction={0.9975} maxVelocity={0.05} minSize={0.4} maxSize={0.9} className="opacity-90" /></Suspense>
       ) : null}
       intro="Breathe in as the circle grows, out as it shrinks. Stop if you feel dizzy, and breathe normally.">
       <div className="grid h-full gap-4 lg:grid-cols-[1fr_300px]">
-        <section className="glass flex h-full min-h-0 flex-col items-center justify-center px-4 py-4" aria-label="Breathing guide">
+        <section className="glass flex h-full min-h-0 min-w-0 flex-col items-center justify-center px-4 py-4" aria-label="Breathing guide">
           {/* The circle takes whatever height is left, so the page never needs scrolling. */}
           <div className="flex min-h-0 w-full flex-1 items-center justify-center">
             <svg viewBox="0 0 240 240" className="h-full max-h-[360px] w-auto max-w-full" aria-hidden="true">
@@ -327,11 +283,11 @@ function Breathing() {
             )}
           </div>
           {/* Phones and narrow windows: pattern and options in one row under the button. */}
-          <div className="mt-3 flex w-full shrink-0 items-center justify-center gap-3 lg:hidden">
+          <div className="mt-3 flex w-full shrink-0 flex-wrap items-center justify-center gap-3 lg:hidden">
             <label className="sr-only" htmlFor="pattern-small">Breathing pattern</label>
             <select id="pattern-small" value={selectedPattern} onChange={(e) => choosePattern(e.target.value)}
               className="rounded-lg border-2 border-ink-900/20 bg-sheet px-2 py-1.5 text-sm font-bold text-ink-900">
-              {Object.entries(initialPatterns).map(([key, p]) => <option key={key} value={key}>{p.name}</option>)}
+              {Object.entries(PATTERNS).map(([key, p]) => <option key={key} value={key}>{p.name}</option>)}
             </select>
                         <details className="relative">
               <summary className="cursor-pointer text-sm font-bold text-ink-800 underline underline-offset-4">Options</summary>
@@ -344,7 +300,7 @@ function Breathing() {
           <section className="glass p-4">
             <h2 className="mb-2 text-lg font-bold text-ink-900">Pattern</h2>
             <div className="space-y-1" role="radiogroup" aria-label="Breathing pattern">
-              {Object.entries(initialPatterns).map(([key, p]) => (
+              {Object.entries(PATTERNS).map(([key, p]) => (
                 <button key={key} type="button" role="radio" aria-checked={selectedPattern === key}
                   onClick={() => choosePattern(key)}
                   className={`block w-full rounded-lg border-2 px-3 py-1.5 text-left ${selectedPattern === key ? 'border-ink-900' : 'border-transparent hover:border-ink-900/30'}`}>

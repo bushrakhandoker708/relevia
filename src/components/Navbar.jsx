@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FaTimes, FaBars } from 'react-icons/fa';
 import { CrayonHeart } from './Crayon';
@@ -15,11 +15,13 @@ const navLinks = [
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { pathname } = useLocation();
+  const menuButton = useRef(null);
 
   useEffect(() => { setIsOpen(false); }, [pathname]);
   useEffect(() => {
     if (!isOpen) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    // Escape closes the menu and puts focus back on the menu button.
+    const onKey = (e) => { if (e.key === 'Escape') { setIsOpen(false); menuButton.current?.focus(); } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen]);
@@ -29,10 +31,10 @@ function Navbar() {
 
   return (
     <nav className="fixed top-0 z-20 w-full border-b border-white/60 bg-paper-100/60 backdrop-blur-xl backdrop-saturate-150">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 text-ink-900" aria-label="Relevia, home">
+      <div className="container mx-auto flex min-h-16 items-center justify-between gap-2 px-4">
+        <Link to="/" className="flex min-w-0 items-center gap-2 text-ink-900" aria-label="Relevia, home">
           <CrayonHeart size={34} />
-          <span className="font-handwritten text-[2rem] font-bold leading-none">Relevia</span>
+          <span className="truncate font-handwritten text-[2rem] font-bold leading-none">Relevia</span>
         </Link>
 
         <div className="hidden items-center gap-7 md:flex">
@@ -43,8 +45,9 @@ function Navbar() {
 
         <button
           type="button"
+          ref={menuButton}
           onClick={() => setIsOpen((v) => !v)}
-          className="rounded-md p-2 text-ink-900 md:hidden"
+          className="shrink-0 rounded-md p-2 text-ink-900 md:hidden"
           aria-expanded={isOpen}
           aria-controls="mobile-menu"
           aria-label={isOpen ? 'Close menu' : 'Open menu'}
