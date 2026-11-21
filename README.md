@@ -64,7 +64,7 @@ git config core.hooksPath .githooks
 
 ## Development and publishing
 
-Keep the application and research histories separate. Changes should explain the problem, the selected correction and the checks that support it. Follow [the writing guide](docs/WRITING_VOICE_GUIDE.md), preserve failed checks and use synthetic dialogue in tests.
+Keep the application and research histories separate. Changes should explain the problem, the selected correction and the checks that support it. Preserve failed checks and use synthetic dialogue in tests.
 
 The site is deployed on Vercel at the root path. `vercel.json` sends every route to `index.html`, so reloading a page such as `/coping` works. `npm run build:pages` builds for the `/relevia/` base path used by GitHub Pages, and `npm run deploy` publishes that build to the `gh-pages` branch. Both are publishing operations, not local checks. The `gh-pages` branch still holds an old build from April 2025 that predates the privacy clean-up and still contains contact details removed from the current code. It should be replaced or GitHub Pages switched off before the project is shared.
 
