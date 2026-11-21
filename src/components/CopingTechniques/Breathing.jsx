@@ -73,6 +73,11 @@ const calmingAffirmations = [
 const secondsOf = (ms) => Math.round(ms / 1000);
 const patternSummary = (p) => p.phases.map((ph) => `${secondsOf(ph.duration)} ${ph.name}`).join(', ');
 
+// What a phase does to the circle: grow, hold, shrink, or rest small.
+const phaseKind = (phase) => (phase.name.includes('hold') ? 'hold'
+  : /\bin\b|inhale/.test(phase.name) ? 'in'
+    : /out|exhale/.test(phase.name) ? 'out' : 'pause');
+
 function Breathing() {
   const [selectedPattern, setSelectedPattern] = useState('calm');
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(-1);
@@ -88,11 +93,12 @@ function Breathing() {
   const [cycle, setCycle] = useState(0);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [currentAffirmation, setCurrentAffirmation] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  const startTimeRef = useRef(null);
+  const elapsedRef = useRef(0); // time spent in the current phase, kept across a pause
+  const circleRef = useRef(null);
+  const scaleRef = useRef(1); // the circle's current size, so a re-render never resets it
   const sessionStartRef = useRef(null);
 
   // ---------- AUDIO SYNTH (optional, off by default) ----------
@@ -141,38 +147,54 @@ function Breathing() {
   }, [soundEnabled, isRunning]);
   useEffect(() => () => closeAudio(), []);
 
-  // Main breathing loop
+  // FIX (smoothness): the circle's size used to be React state set every 100 ms, with the
+  // next phase started by a separate timer. Frames delayed by the 3D background showed as
+  // stutters, and for up to 100 ms after a hold the out-breath reused the old progress (1),
+  // so the circle snapped small and back: a visible shake. Now one animation-frame loop
+  // sets the size directly on the circle with a gentle ease, and moves to the next phase in
+  // the same frame. React only re-renders when the countdown second changes.
   useEffect(() => {
     if (!isRunning || currentPhaseIndex === -1) return undefined;
-    const phase = pattern.phases[currentPhaseIndex];
-    startTimeRef.current = Date.now();
-    const timer = setTimeout(() => {
-      const next = (currentPhaseIndex + 1) % pattern.phases.length;
-      if (next === 0) {
-        setCycle((c) => {
-          const n = c + 1;
-          if (n % 3 === 0) {
-            const a = calmingAffirmations[Math.floor(Math.random() * calmingAffirmations.length)];
-            setCurrentAffirmation(a.text);
-          }
-          return n;
-        });
+    const phases = pattern.phases;
+    const max = Math.max(...phases.map((p) => p.targetScale));
+    const phase = phases[currentPhaseIndex];
+    const k = phaseKind(phase);
+    const begin = performance.now() - elapsedRef.current;
+    let frame = 0;
+    let shownSecond = -1;
+    const tick = (now) => {
+      const elapsed = now - begin;
+      elapsedRef.current = elapsed;
+      const t = Math.min(1, elapsed / phase.duration);
+      const eased = 0.5 - Math.cos(Math.PI * t) / 2; // slow at both ends, like a breath
+      const scale = k === 'in' ? 1 + (max - 1) * eased
+        : k === 'hold' ? (phase.targetScale > 1 ? max : 1)
+          : k === 'out' ? 1 + (max - 1) * (1 - eased)
+            : 1;
+      circleRef.current?.setAttribute('r', String(70 * scale));
+      scaleRef.current = scale;
+      const second = Math.ceil(Math.max(0, phase.duration - elapsed) / 1000);
+      if (second !== shownSecond) { shownSecond = second; setRemainingTime(second * 1000); }
+      if (t >= 1) {
+        elapsedRef.current = 0;
+        const next = (currentPhaseIndex + 1) % phases.length;
+        if (next === 0) {
+          setCycle((c) => {
+            const n = c + 1;
+            if (n % 3 === 0) {
+              const a = calmingAffirmations[Math.floor(Math.random() * calmingAffirmations.length)];
+              setCurrentAffirmation(a.text);
+            }
+            return n;
+          });
+        }
+        setCurrentPhaseIndex(next);
+        return;
       }
-      setCurrentPhaseIndex(next);
-    }, phase.duration);
-    return () => clearTimeout(timer);
-  }, [isRunning, currentPhaseIndex, pattern]);
-
-  // Progress within the phase
-  useEffect(() => {
-    if (!isRunning || currentPhaseIndex === -1) return undefined;
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const d = pattern.phases[currentPhaseIndex].duration;
-      setRemainingTime(Math.max(0, d - elapsed));
-      setProgress(Math.min(1, elapsed / d));
-    }, 100);
-    return () => clearInterval(interval);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [isRunning, currentPhaseIndex, pattern]);
 
   // Session time
@@ -189,15 +211,10 @@ function Breathing() {
   // (the out phase's own target is 1). In grows to the pattern's largest size, a hold keeps
   // the size it reached, out shrinks smoothly, and a pause stays small.
   const maxScale = Math.max(...pattern.phases.map((p) => p.targetScale));
-  const kind = !currentPhase ? 'idle'
-    : currentPhase.name.includes('hold') ? 'hold'
-      : /\bin\b|inhale/.test(currentPhase.name) ? 'in'
-        : /out|exhale/.test(currentPhase.name) ? 'out' : 'pause';
+  const kind = currentPhase ? phaseKind(currentPhase) : 'idle';
   const growing = kind === 'in';
-  const breathingScale = kind === 'in' ? 1 + (maxScale - 1) * progress
-    : kind === 'hold' ? (currentPhase.targetScale > 1 ? maxScale : 1)
-      : kind === 'out' ? 1 + (maxScale - 1) * (1 - progress)
-        : 1;
+  // The tone's loudness follows the phase's end size (the circle itself is animated above).
+  const breathingScale = kind === 'in' || (kind === 'hold' && currentPhase.targetScale > 1) ? maxScale : 1;
 
   // Tone follows the breath
   useEffect(() => {
@@ -209,11 +226,12 @@ function Breathing() {
     oscR.current.frequency.setTargetAtTime(freq + 6, now, 0.1);
     subOsc.current.frequency.setTargetAtTime(64, now, 0.1);
     const vol = 0.1 * (breathingScale ** 2);
-    gainL.current.gain.setTargetAtTime(vol, now, 0.1);
-    gainR.current.gain.setTargetAtTime(vol, now, 0.1);
-    subGain.current.gain.setTargetAtTime(vol * 0.5, now, 0.1);
+    const glide = currentPhase ? currentPhase.duration / 3000 : 0.1; // reach the new level over the phase
+    gainL.current.gain.setTargetAtTime(vol, now, glide);
+    gainR.current.gain.setTargetAtTime(vol, now, glide);
+    subGain.current.gain.setTargetAtTime(vol * 0.5, now, glide);
     panner.current.pan.setTargetAtTime(growing ? 0.3 : -0.3, now, 0.1);
-  }, [soundEnabled, growing, breathingScale]);
+  }, [soundEnabled, growing, breathingScale, currentPhase]);
 
   const startExercise = useCallback(() => {
     if (soundEnabled) {
@@ -236,7 +254,9 @@ function Breathing() {
     setIsRunning(false);
     setCycle(0);
     setSessionDuration(0);
-    setProgress(0);
+    elapsedRef.current = 0;
+    scaleRef.current = 1;
+    circleRef.current?.setAttribute('r', '70');
     setCurrentAffirmation('');
     sessionStartRef.current = null;
     closeAudio();
@@ -248,7 +268,6 @@ function Breathing() {
   };
 
   const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
-  const r = 70 * breathingScale;
 
   const options = (
     <>
@@ -279,7 +298,7 @@ function Breathing() {
             <svg viewBox="0 0 240 240" className="h-full max-h-[360px] w-auto max-w-full" aria-hidden="true">
               <circle cx="120" cy="120" r={70 * Math.max(...pattern.phases.map((p) => p.targetScale))} fill="none" stroke="#C9D3DE" strokeWidth="2" strokeDasharray="4 6" />
               <circle cx="120" cy="120" r="70" fill="none" stroke="#C9D3DE" strokeWidth="2" />
-              <circle cx="120" cy="120" r={r} fill="#E1EAE2" stroke="#5F7F68" strokeWidth="4" style={{ transition: 'r 0.1s linear' }} />
+              <circle ref={circleRef} cx="120" cy="120" r={70 * scaleRef.current} fill="#E1EAE2" stroke="#5F7F68" strokeWidth="4" />
               {currentPhase && (
                 <text x="120" y="129" textAnchor="middle" fontSize="28" fontWeight="700" fill="#2B2D42">{Math.ceil(remainingTime / 1000)}</text>
               )}
